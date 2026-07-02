@@ -1,0 +1,109 @@
+# master-llm — ローカル/クラウド オーケストレーション評価ハーネス
+
+ローカルLLM（LM Studio）と Claude（Claude Code CLI・サブスク経由）を組み合わせた
+オーケストレーションが「Claude だけでやる場合」と比べてどれだけ有用かを、
+**同一タスク・同一指示**で計測・比較するための評価ハーネス。
+
+計測する3軸（必ずセットで見る）:
+
+| 軸 | 指標 | 良い方向 |
+|---|---|---|
+| 精度 | 隠しテストのクリア率 (`success`) | 高い |
+| 金  | クラウドトークンの $ (`cost_usd`、ローカルは $0) | 低い |
+| 速度 | 最初から最後までの実時間 (`wall_s`) | 短い |
+
+## ドキュメント
+
+全体像・設計・研究計画は `docs/` にある。**入口は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**（図解+索引）。
+
+- [docs/DESIGN-telemetry.md](docs/DESIGN-telemetry.md) — 計測基盤 v2 の設計（次の実装対象）
+- [docs/DESIGN-dataset.md](docs/DESIGN-dataset.md) — 学習データ基盤の設計（routing / sft / ambiguity）
+- [docs/RESEARCH-BACKLOG.md](docs/RESEARCH-BACKLOG.md) — 本線に載せない研究テーマの記録
+
+## ディレクトリ構成
+
+```
+master-llm/
+├── README.md
+├── requirements.txt
+├── .gitignore
+├── .env.local.example      # 秘密情報の雛形（実値は .env.local へ。コミット禁止）
+├── docs/                   # 設計書・図解・研究バックログ（入口: ARCHITECTURE.md）
+├── harness/                # 計測エンジン（責務ごとに分割）
+│   ├── config.py           #   設定値（URL・モデル名・単価・既定キャップ）
+│   ├── models.py           #   データ型（Task / Budget / CallResult / RunResult）
+│   ├── clients.py          #   モデル呼び出し境界（ローカル /v1 ・ claude -p）
+│   ├── applier.py          #   単発応答→ファイル反映（簡易エージェント）
+│   ├── router.py           #   ルーティング判定（← いずれ学習させる中核）
+│   ├── arms.py             #   条件（cloud_only / local_only / router / mock）
+│   ├── workspace.py        #   実行ごとにまっさらな作業コピーを用意
+│   ├── runner.py           #   1タスク実行 + 隠しテスト検証 + ログ追記
+│   └── report.py           #   runs.jsonl を arm 別に集計
+├── tasks/                  # タスクパケット（データ + 隠しテスト）
+│   ├── registry.py         #   tasks/*/task.yaml を読み込む
+│   └── fizzbuzz/           #   サンプル backend タスク
+│       ├── task.yaml       #     メタ + 全armに渡す指示文 + 予算キャップ
+│       ├── seed/           #     エージェントに渡す初期状態（編集対象）
+│       │   └── fizzbuzz.py
+│       ├── tests/          #     ★隠し評価テスト（エージェントには見せない）
+│       │   └── test_hidden.py
+│       └── mock_solution.txt  # mock arm 用の模範解
+├── scripts/                # CLI 入口
+│   ├── run_bench.py        #   全タスク × arm × 反復 を実行
+│   └── show_report.py      #   集計テーブルを表示
+└── runs/                   # 出力（runs.jsonl、gitignore 済み）
+```
+
+## セットアップ
+
+```bash
+cd /Users/techno-bibi/dev/master-llm
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### クラウド側（Claude Code CLI・サブスク接続）
+
+トークン等の秘密情報は `.env.local` に置く（**gitignore 済み・コミット禁止**。公開リポジトリのため）:
+
+```bash
+claude setup-token            # 一度だけ。Pro/Max で 1年 OAuth トークンを発行
+cp .env.local.example .env.local   # 発行されたトークンを .env.local に書き込む
+source .env.local             # ベンチ実行前に毎回読み込む
+```
+
+`.env.local` は `unset ANTHROPIC_API_KEY` も行う（★これが残ると黙って従量課金APIになる）。
+
+### ローカル側（LM Studio）
+
+LM Studio を起動し、MLX バックエンドでモデル（例: `qwen3-coder-30b-a3b`）をロード、
+Developer タブで OpenAI 互換サーバを `http://localhost:1234` で起動しておく。
+
+## 使い方（3段階）
+
+```bash
+# 1) まず配管確認：モデル不要。模範解を書いて全パイプラインが動くか見る
+python -m scripts.run_bench --arms mock
+python -m scripts.show_report
+
+# 2) ローカルだけ（LM Studio 起動が必要）
+python -m scripts.run_bench --arms local_only
+
+# 3) 本番比較：Claude だけ vs ルーター
+python -m scripts.run_bench --arms cloud_only,router --repeats 3
+python -m scripts.show_report
+```
+
+## 計測方法のルール（結果を信用できるものにする4点）
+
+1. **完了定義 + 予算キャップ**: `task.yaml` の `budget` で上限（コスト/ターン/時間）を置き、
+   当たったら未達=失敗としてカウント。暴走した1回が平均を壊すのを防ぐ。
+2. **テストは隠す**: `tests/` はエージェントに渡さず、実行後に `runner.verify()` が回す。
+   見せると問題を解かずにテストだけ通す不正が起きる。
+3. **複数回**: LLM は確率的。`--repeats 3`（以上）で中央値・ばらつきを見る。
+4. **3軸まとめて**: 精度・$・時間を単独で語らない。「精度を保ったままコスト何%減か」で判断。
+
+## タスクの増やし方
+
+`tasks/<新id>/` を作り、`task.yaml`・`seed/`・`tests/` を置くだけで自動認識される。
+まずは pytest で客観判定できる backend タスクから。UI タスク（Playwright 検証）は後から。

@@ -1,0 +1,15 @@
+id: fizzbuzz
+category: edit
+target_file: fizzbuzz.py
+prompt: |
+  fizzbuzz.py の関数 fizzbuzz(n) を実装してください。
+  1 から n までを1行ずつ表す「文字列のリスト」を返します。
+    - 3の倍数は "Fizz"
+    - 5の倍数は "Buzz"
+    - 3と5両方の倍数は "FizzBuzz"
+    - それ以外はその数字を文字列にしたもの（例: "1", "2"）
+  ファイル fizzbuzz.py を編集して完成させてください。
+budget:
+  max_cost_usd: 0.20
+  max_turns: 20
+  max_wall_s: 300

@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+
+# 秘密情報（公開リポジトリ。実値は .env.local に置き、絶対にコミットしない）
+.env
+.env.local
+.env.*.local
+
+# 計測ログ・派生データ（ローカル生成物。スキーマは docs/ で管理）
+runs/*.jsonl
+runs/artifacts/
+datasets/
+
+# macOS
+.DS_Store
