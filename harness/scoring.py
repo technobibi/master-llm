@@ -26,7 +26,8 @@ def score(task, cwd: str):
     if method == "manifest-recall":
         return score_manifest_recall(task, cwd)
     if method == "ui-static":
-        return 0, 0, "ui-static は専用ランナー（tasks_ui/）で採点する。通常ベンチ非対応。"
+        from harness import ui_scoring  # playwright を遅延import（任意依存）
+        return ui_scoring.score_ui(task, cwd)
     return 0, 0, f"unknown scoring: {method}"
 
 

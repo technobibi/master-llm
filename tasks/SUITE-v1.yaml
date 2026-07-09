@@ -40,5 +40,10 @@ tasks:
   - {id: f3_vague,      category: ambiguous, tier: mid,  scoring: pytest, variant_of: f3, holdout: true}
   - {id: f3_spec,       category: ambiguous, tier: mid,  scoring: pytest, variant_of: f3, holdout: true}
 
-# G Web画面（ui-static）は tasks_ui/ に別途実装予定（Playwright専用ランナー）。
-# suite v1 の凍結対象には含めない（DESIGN-testplan §7 の最終ステップ）。
+  # G Web画面（ui-static。tasks_ui/ に配置。採点に Playwright を使う）
+  - {id: g1_counter,   category: ui, tier: low,  scoring: ui-static, holdout: false}
+  - {id: g2_todo,      category: ui, tier: mid,  scoring: ui-static, holdout: false}
+  - {id: g3_dashboard, category: ui, tier: high, scoring: ui-static, holdout: true}
+
+# g3_image（正解スクショを渡す画像変種）は画像添付の配管が未実装のため suite v1 に含めない。
+# ローカルはテキスト専用モデルなので、実装時は画像タスク=クラウド必須の教師データになる。

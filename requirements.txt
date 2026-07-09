@@ -1,3 +1,8 @@
 requests>=2.31
 pyyaml>=6.0
 pytest>=8.0
+
+# 任意: Web画面タスク(tasks_ui/ の ui-static 採点)にのみ必要。
+#   pip install playwright && python -m playwright install chromium
+# 未導入でも他のタスクは動く（UI採点だけスキップされる）。
+# playwright>=1.40

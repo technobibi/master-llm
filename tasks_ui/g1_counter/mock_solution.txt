@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><style>
+  body { font-family: sans-serif; text-align: center; padding: 40px; }
+  #val { font-size: 48px; margin: 20px; }
+  button { padding: 10px 20px; margin: 6px; border: none; border-radius: 8px;
+           font-size: 18px; color: #fff; cursor: pointer; }
+  .plus { background: #2563eb; }
+  .minus { background: #64748b; }
+  .reset { background: #dc2626; }
+</style></head><body>
+  <div id="val">0</div>
+  <button class="plus" onclick="upd(1)">+</button>
+  <button class="minus" onclick="upd(-1)">−</button>
+  <button class="reset" onclick="reset()">リセット</button>
+  <script>
+    let n = 0; const v = document.getElementById('val');
+    function upd(d) { n += d; v.textContent = n; }
+    function reset() { n = 0; v.textContent = n; }
+  </script>
+</body></html>

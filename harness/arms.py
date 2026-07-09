@@ -78,10 +78,11 @@ def _local_smoke(cwd: str, target_file: str):
         path = os.path.join(cwd, target_file)
         if not os.path.isfile(path):
             return f"{target_file} が作られていない"
-        proc = subprocess.run([sys.executable, "-m", "py_compile", path],
-                              capture_output=True, text=True)
-        if proc.returncode != 0:
-            return "構文エラー:\n" + (proc.stderr or "syntax error")[-800:]
+        if target_file.endswith(".py"):  # 構文チェックは Python のみ（HTML等はスキップ）
+            proc = subprocess.run([sys.executable, "-m", "py_compile", path],
+                                  capture_output=True, text=True)
+            if proc.returncode != 0:
+                return "構文エラー:\n" + (proc.stderr or "syntax error")[-800:]
 
     smoke = os.path.join(cwd, "smoke_test.py")
     if os.path.isfile(smoke):
