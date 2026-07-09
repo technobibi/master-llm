@@ -50,7 +50,11 @@ master-llm/
 │       └── mock_solution.txt  # mock arm 用の模範解
 ├── scripts/                # CLI 入口
 │   ├── run_bench.py        #   全タスク × arm × 反復 を実行
-│   └── show_report.py      #   集計テーブルを表示
+│   ├── show_report.py      #   集計テーブルを表示
+│   └── serve_ui.py         #   ブラウザUI起動（http://127.0.0.1:8787）
+├── webui/                  # 簡易UI（標準ライブラリのみ・localhost限定）
+│   ├── server.py           #   APIサーバ + run_bench のサブプロセス起動
+│   └── static/             #   index.html / style.css / app.js
 └── runs/                   # 出力（runs.jsonl、gitignore 済み）
 ```
 
@@ -79,7 +83,16 @@ source .env.local             # ベンチ実行前に毎回読み込む
 LM Studio を起動し、MLX バックエンドでモデル（例: `qwen3-coder-30b-a3b`）をロード、
 Developer タブで OpenAI 互換サーバを `http://localhost:1234` で起動しておく。
 
-## 使い方（3段階）
+## 使い方（ブラウザUI）
+
+```bash
+python -m scripts.serve_ui     # → http://127.0.0.1:8787 を開く
+```
+
+タスク確認・arm選択・ベンチ実行・ログ表示・集計・履歴が1画面で使える。
+CLI と同じ `scripts.run_bench` を裏で呼ぶだけなので、計測結果は完全に同一。
+
+## 使い方（CLI・3段階）
 
 ```bash
 # 1) まず配管確認：モデル不要。模範解を書いて全パイプラインが動くか見る

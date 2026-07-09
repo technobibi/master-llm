@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>master-llm ベンチ</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>master-llm <span>ローカル/クラウド オーケストレーション評価</span></h1>
+  <div id="status" class="badge idle">待機中</div>
+</header>
+
+<main>
+  <section id="launch">
+    <h2>ベンチ実行</h2>
+    <div class="row">
+      <div class="field">
+        <label>arm（比較条件）</label>
+        <div id="arm-boxes" class="checks"></div>
+      </div>
+      <div class="field">
+        <label for="repeats">反復</label>
+        <input id="repeats" type="number" min="1" max="20" value="1">
+      </div>
+      <div class="field">
+        <label for="task-select">タスク</label>
+        <select id="task-select"><option value="">すべて</option></select>
+      </div>
+      <div class="field buttons">
+        <button id="run-btn">実行</button>
+        <button id="stop-btn" class="danger" disabled>中断</button>
+      </div>
+    </div>
+    <p class="hint">
+      mock = モデル不要の配管確認 ／ local_only = LM Studio 起動が必要 ／
+      cloud_only・router = <b>サブスク枠を消費</b>。反復は本計測なら3以上。
+    </p>
+    <pre id="log" class="log" hidden></pre>
+  </section>
+
+  <section id="report-sec">
+    <h2>集計（arm 別・3軸セット） <span id="n-runs" class="muted"></span></h2>
+    <table id="report">
+      <thead><tr>
+        <th>arm</th><th>runs</th><th>成功率</th><th>$平均</th><th>秒平均</th><th>out_tok平均</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section id="recent-sec">
+    <h2>実行履歴（新しい順・直近20件）</h2>
+    <table id="recent">
+      <thead><tr>
+        <th>task</th><th>arm</th><th>rep</th><th>結果</th>
+        <th>$</th><th>秒</th><th>in</th><th>out</th><th>turns</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section id="tasks-sec">
+    <h2>タスク一覧</h2>
+    <div id="task-cards"></div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
