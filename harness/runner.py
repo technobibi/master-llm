@@ -12,7 +12,7 @@ import time
 from dataclasses import asdict
 from datetime import datetime, timezone
 
-from harness import config, router, scoring
+from harness import agent, config, router, scoring
 from harness.arms import ARMS
 from harness.models import RunResult
 from harness.workspace import cleanup, fresh_workspace
@@ -114,6 +114,7 @@ def run_task(task, arm_name: str, rep: int) -> RunResult:
                 "billing": config.CLOUD_BILLING,
                 "machine": config.MACHINE_LABEL,
                 "router_version": router.ROUTER_VERSION,
+                "agent_version": agent.AGENT_VERSION,
             },
         )
 

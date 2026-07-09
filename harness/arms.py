@@ -7,7 +7,7 @@ import subprocess
 import sys
 import time
 
-from harness import clients, config, router
+from harness import agent, clients, config, router
 from harness.applier import apply_code
 from harness.models import CallResult, Task
 
@@ -66,19 +66,34 @@ def _with_line_numbers(text: str) -> str:
 
 
 def _local_smoke(cwd: str, target_file: str):
-    """ローカル修正ループ用の公開スモークチェック（構文チェックのみ）。
+    """ローカル修正ループ用の公開検証。戻り値: エラー文字列（問題なければ None）。
 
-    ★隠しテストは絶対に使わない（使うと昇格判定へのリークになる。STUDY-2 §1）。
-    戻り値: エラーメッセージ（問題なければ None）。
+    ★隠しテスト(tests/)は絶対に使わない（昇格判定へのリークになる。STUDY-2 §1）。
+    使う信号は2つだけ、いずれも公開:
+      1. 対象ファイルの構文チェック（py_compile）
+      2. seed 同梱の公開スモークテスト smoke_test.py（あれば）を実行
+         — 隠しテストより緩い基本ケースのみ。モデルに見せてよい。
     """
-    path = os.path.join(cwd, target_file)
-    if not os.path.isfile(path):
-        return f"{target_file} が作られていない"
-    proc = subprocess.run([sys.executable, "-m", "py_compile", path],
-                          capture_output=True, text=True)
-    if proc.returncode == 0:
-        return None
-    return (proc.stderr or "syntax error")[-800:]
+    if target_file:
+        path = os.path.join(cwd, target_file)
+        if not os.path.isfile(path):
+            return f"{target_file} が作られていない"
+        proc = subprocess.run([sys.executable, "-m", "py_compile", path],
+                              capture_output=True, text=True)
+        if proc.returncode != 0:
+            return "構文エラー:\n" + (proc.stderr or "syntax error")[-800:]
+
+    smoke = os.path.join(cwd, "smoke_test.py")
+    if os.path.isfile(smoke):
+        env = dict(os.environ)
+        env["PYTHONPATH"] = cwd + os.pathsep + env.get("PYTHONPATH", "")
+        proc = subprocess.run(
+            [sys.executable, "-m", "pytest", "smoke_test.py", "-q"],
+            cwd=cwd, env=env, capture_output=True, text=True,
+        )
+        if proc.returncode != 0:
+            return "公開スモークテスト失敗:\n" + (proc.stdout or proc.stderr or "")[-1000:]
+    return None
 
 
 def arm_cloud_only(task: Task, cwd: str):
@@ -130,6 +145,14 @@ def arm_local_only(task: Task, cwd: str):
     return calls, None
 
 
+def arm_local_agent(task: Task, cwd: str):
+    """ローカルをツール使用エージェントとして動かす（docs/DESIGN-agent.md）。
+    モデルが read/write/run_tests を自分で使ってタスクを解く。cloud と同じ土俵。
+    """
+    call = agent.run_agent(task, cwd)
+    return [call], None
+
+
 def arm_router(task: Task, cwd: str):
     """本命：ルーターの判定どおりにローカルかクラウドへ送る。
     判定記録（特徴量つき）は runner が router.jsonl に残す。
@@ -165,6 +188,7 @@ def arm_mock(task: Task, cwd: str):
 ARMS = {
     "mock": arm_mock,
     "local_only": arm_local_only,
+    "local_agent": arm_local_agent,
     "cloud_only": arm_cloud_only,
     "router": arm_router,
 }

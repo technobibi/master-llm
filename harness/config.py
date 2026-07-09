@@ -25,6 +25,9 @@ CLOUD_BILLING = os.environ.get("CLOUD_BILLING", "subscription")
 # --- ローカルの修正ループ（クラウドとの非対称性を緩和） ---
 LOCAL_MAX_RETRIES = int(os.environ.get("LOCAL_MAX_RETRIES", "2"))
 
+# --- ローカル・エージェント（ツール使用ループ） ---
+AGENT_MAX_STEPS = int(os.environ.get("AGENT_MAX_STEPS", "12"))
+
 # --- 環境スナップショット用ラベル（個人情報を入れないこと） ---
 MACHINE_LABEL = os.environ.get("MACHINE_LABEL", "unknown")
 

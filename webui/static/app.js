@@ -10,10 +10,16 @@ const ARM_INFO = {
     cost: "無料・すぐ終わる",
   },
   local_only: {
-    title: "ローカルLLMだけ",
-    desc: "Mac上のモデル（LM Studio）に全部やらせる。ローカルの実力を見る。",
+    title: "ローカルLLM（素）",
+    desc: "Mac上のモデルに単発生成させる。ファイル内容は渡すが手足なし。器なしの基準。",
     needs: ["lm"],
     cost: "無料（電気代のみ）",
+  },
+  local_agent: {
+    title: "ローカルLLM（エージェント）",
+    desc: "ローカルモデルにツール（読む/書く/テスト実行）を与えて自律的に解かせる。器あり。",
+    needs: ["lm"],
+    cost: "無料。ただしトークン・時間は素より増える",
   },
   cloud_only: {
     title: "Claudeだけ【基準】",
@@ -144,7 +150,7 @@ function renderJob() {
 // ---- 結果 ----
 function renderResults() {
   $("n-runs").textContent = `（これまでの累計 ${S.n_runs} 回）`;
-  const order = ["cloud_only", "router", "local_only", "mock"];
+  const order = ["cloud_only", "router", "local_agent", "local_only", "mock"];
   $("report").tBodies[0].innerHTML = Object.entries(S.report)
     .sort(([a], [b]) => order.indexOf(a) - order.indexOf(b))
     .map(([arm, m]) => {
