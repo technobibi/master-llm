@@ -63,7 +63,10 @@ def call_local(prompt: str, role: str = "solo") -> CallResult:
 def call_cloud(prompt: str, cwd: str, max_turns: int, role: str = "solo") -> CallResult:
     """Claude Code CLI をヘッドレスで実行。cwd 内のファイルを自律的に編集する。"""
     env = dict(os.environ)
-    env.pop("ANTHROPIC_API_KEY", None)  # ★サブスクトークンを使わせる（従量課金を防ぐ）
+    if config.CLOUD_BILLING != "api":
+        # ★サブスク運用時はAPIキーを必ず外す。残っていると黙って従量課金になる。
+        #   API運用（CLOUD_BILLING=api）のときだけキーを通し、CLI報告額を実支払として記録する。
+        env.pop("ANTHROPIC_API_KEY", None)
     cmd = [
         config.CLAUDE_BIN, "-p", prompt,
         "--output-format", "json",
