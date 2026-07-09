@@ -17,6 +17,20 @@ PRICING = {
     "cloud": {"in": 3.00, "out": 15.00},
 }
 
+# --- 課金モード ---
+# "subscription": claude -p はサブスク接続。実支払 cost_usd は 0、CLI報告額は API換算値として記録
+# "api":          従量課金API接続。CLI報告額がそのまま実支払
+CLOUD_BILLING = os.environ.get("CLOUD_BILLING", "subscription")
+
+# --- ローカルの修正ループ（クラウドとの非対称性を緩和） ---
+LOCAL_MAX_RETRIES = int(os.environ.get("LOCAL_MAX_RETRIES", "2"))
+
+# --- 環境スナップショット用ラベル（個人情報を入れないこと） ---
+MACHINE_LABEL = os.environ.get("MACHINE_LABEL", "unknown")
+
 # --- 既定値 ---
 RUNS_FILE = os.environ.get("RUNS_FILE", "runs/runs.jsonl")
+CALLS_FILE = os.environ.get("CALLS_FILE", "runs/calls.jsonl")
+ROUTER_FILE = os.environ.get("ROUTER_FILE", "runs/router.jsonl")
+ARTIFACTS_DIR = os.environ.get("ARTIFACTS_DIR", "runs/artifacts")
 DEFAULT_REPEATS = int(os.environ.get("DEFAULT_REPEATS", "3"))

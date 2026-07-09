@@ -153,16 +153,26 @@ function renderResults() {
       return `<tr>
         <td>${info ? info.title : arm}</td><td>${m.runs}</td>
         <td><div class="rate"><div class="rate-bar" style="width:${pct}%"></div><span>${pct}%</span></div></td>
-        <td>${m.avg_cost_usd.toFixed(4)}</td>
-        <td>${m.avg_wall_s.toFixed(1)}</td>
-        <td>${Math.round(m.avg_out_tok)}</td></tr>`;
+        <td>${m.med_api_equiv_usd.toFixed(4)}</td>
+        <td>${m.med_wall_s.toFixed(1)}</td>
+        <td>${Math.round(m.med_out_tok)}</td>
+        <td>${m.cloud_calls}回</td></tr>`;
     }).join("")
-    || '<tr><td colspan="6" class="muted">まだ実行がありません。ステップ1〜3で最初のベンチを回してみてください。</td></tr>';
+    || '<tr><td colspan="7" class="muted">まだ実行がありません。ステップ1〜3で最初のベンチを回してみてください。</td></tr>';
+
+  const reg = S.regret;
+  $("regret").hidden = !reg;
+  if (reg) {
+    $("regret").textContent =
+      `オラクル regret: ルーター成功率 ${Math.round(reg.router_success_rate * 100)}% / ` +
+      `全条件の結果を知る理想の振り分け（オラクル）${Math.round(reg.oracle_success_rate * 100)}% ` +
+      `→ 差 ${Math.round(reg.regret * 100)}%（0%に近いほどルーターが賢い。対象 ${reg.pairs} 組）`;
+  }
 
   $("recent").tBodies[0].innerHTML = S.recent.map((r) => `<tr>
     <td>${r.task}</td><td>${(ARM_INFO[r.arm] || { title: r.arm }).title}</td><td>${r.rep + 1}回目</td>
     <td class="${r.success ? "ok" : "ng"}">${r.success ? "成功" : "失敗"}${r.hit_cap ? "（上限超過）" : ""}</td>
-    <td>${r.cost_usd.toFixed(4)}</td><td>${r.wall_s.toFixed(1)}</td>
+    <td>${(r.api_equiv_usd ?? r.cost_usd).toFixed(4)}</td><td>${r.wall_s.toFixed(1)}</td>
     <td>${r.in_tok}</td><td>${r.out_tok}</td><td>${r.turns}</td></tr>`).join("")
     || '<tr><td colspan="9" class="muted">まだ実行がありません</td></tr>';
 }

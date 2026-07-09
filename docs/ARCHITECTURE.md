@@ -10,8 +10,8 @@
 | 文書 | 内容 | 状態 |
 |---|---|---|
 | [README.md](../README.md) | セットアップと使い方 | 実装済みの範囲を記載 |
-| [DESIGN-telemetry.md](DESIGN-telemetry.md) | 計測基盤 v2（精度・時間・トークン・コスト・枠消費のログ設計） | **設計のみ・次の実装対象** |
-| [DESIGN-dataset.md](DESIGN-dataset.md) | 学習データ基盤（routing / sft / ambiguity の3データセット） | **設計のみ** |
+| [DESIGN-telemetry.md](DESIGN-telemetry.md) | 計測基盤 v2（精度・時間・トークン・コスト・枠消費のログ設計） | **実装済み**（2026-07-09） |
+| [DESIGN-dataset.md](DESIGN-dataset.md) | 学習データ基盤（routing / sft / ambiguity の3データセット） | **実装済み**（build_dataset.py） |
 | [RESEARCH-BACKLOG.md](RESEARCH-BACKLOG.md) | 本線に載せない研究テーマ R1〜R9（着手条件つき） | 記録のみ |
 | [study/STUDY-1-llm.md](study/STUDY-1-llm.md) | 勉強ノート: LLMの仕組み（このプロジェクトに必要な分だけ） | 教材 |
 | [study/STUDY-2-harness.md](study/STUDY-2-harness.md) | 勉強ノート: 計測ルールの「なぜ」= ML評価の設計思想 | 教材 |
@@ -98,18 +98,18 @@
 
 ## 既知の設計課題（未解決のまま前提にしない）
 
-- **arm の非対称性**: cloud はツール付きエージェント、local は単発生成のみ。
-  このままだと local が実力より悪く見える。local に「実行→エラーを見て再生成」ループを
-  足すのが先決（R1 カスケードの前提でもある）。
-- **cost_usd の意味**: サブスク下では `claude -p` の報告額は請求されない架空値。
-  v2 で `api_equiv_usd`（換算）と `cost_usd`（実支払=0）に分離する。
+- **arm の非対称性（緩和済み・未解消）**: local に「生成→構文チェック→再生成」ループは
+  入った（2026-07-09）が、cloud のようなツール使用・実行結果の観察はまだない。
+  完全対等ではないことをレポートの解釈時に忘れない。
 - **タスクが1個**: fizzbuzz のみ。結論を出すにはカテゴリ横断で 10〜20 タスク必要。
+- **ターン単位の usage 未取得**: `claude -p` の合計しか取っていない。コンテキスト
+  成長曲線（曖昧さ研究の本丸）には `--output-format stream-json` への切り替えが要る。
 
 ## いま→次（ロードマップ、上から順）
 
-1. 計測基盤 v2 の実装（DESIGN-telemetry.md の実装ステップ 1〜5）
-2. artifacts 保存を含めてベンチを回し始める＝データ蓄積開始
-3. `build_dataset.py --kind routing`（DESIGN-dataset.md）
-4. local arm の実行→修正ループ（非対称性の解消）
+1. ~~計測基盤 v2 の実装~~ ✅ 2026-07-09（runs/calls/router jsonl + artifacts + 中央値 + regret）
+2. ~~local arm の修正ループ~~ ✅ 同上（構文チェックベース。実行観察はまだ）
+3. ~~build_dataset.py~~ ✅ 同上（routing / sft / ambiguity）
+4. **LM Studio を起動して local_only / cloud_only の実弾ベンチ → データ蓄積開始** ← いまここ
 5. タスクを増やす（lookup / edit / translate / feature / debug の各カテゴリ）
-6. ここから先は RESEARCH-BACKLOG.md（R6 regret → R1 カスケード → R2 学習ルーター…）
+6. ここから先は RESEARCH-BACKLOG.md（R1 カスケード → R2 学習ルーター…）

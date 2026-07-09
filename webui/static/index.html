@@ -66,11 +66,13 @@
       成功 = 隠しテスト全通過 かつ 予算内。</p>
     <table id="report">
       <thead><tr>
-        <th>条件</th><th>実行数</th><th>成功率</th><th>コスト平均<span class="unit">$</span></th>
-        <th>時間平均<span class="unit">秒</span></th><th>出力トークン平均</th>
+        <th>条件</th><th>実行数</th><th>成功率</th><th>API換算<span class="unit">$中央値</span></th>
+        <th>時間<span class="unit">秒 中央値</span></th><th>出力tok<span class="unit">中央値</span></th>
+        <th>クラウド呼出<span class="unit">枠消費</span></th>
       </tr></thead>
       <tbody></tbody>
     </table>
+    <div id="regret" class="why" hidden></div>
     <details class="history">
       <summary>実行履歴（直近20件）</summary>
       <table id="recent">

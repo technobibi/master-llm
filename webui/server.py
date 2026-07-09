@@ -25,7 +25,7 @@ import requests
 
 from harness import config
 from harness.arms import ARMS
-from harness.report import aggregate, load
+from harness.report import aggregate, load, oracle_regret
 from tasks.registry import load_tasks
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -126,6 +126,7 @@ def state() -> dict:
         "job": {"running": JOB.running(), "done": JOB.done(), "total": JOB.total},
         "log": list(JOB.log),
         "report": aggregate(rows),
+        "regret": oracle_regret(rows),
         "recent": rows[-20:][::-1],
         "n_runs": len(rows),
     }

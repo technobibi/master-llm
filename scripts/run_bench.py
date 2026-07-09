@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""ベンチ実行：全タスク × 選択した arm × N反復 を回して runs/runs.jsonl に追記。
+"""ベンチ実行：全タスク × 選択した arm × N反復 を回す。
+ログ（runs/calls/router + artifacts）は runner が実行のたびに追記する。
 
 例:
   python -m scripts.run_bench --arms mock
@@ -10,7 +11,7 @@ import argparse
 
 from harness import config
 from harness.arms import ARMS
-from harness.runner import append_result, run_task
+from harness.runner import run_task
 from tasks.registry import load_tasks
 
 
@@ -37,12 +38,12 @@ def main():
         for arm in arms:
             for rep in range(args.repeats):
                 res = run_task(task, arm, rep)
-                append_result(res)
                 flag = "ok  " if res.success else "FAIL"
-                cap = " (hit cap)" if res.hit_cap else ""
+                cap = f" (cap:{res.cap_reason})" if res.hit_cap else ""
                 print(f"[{flag}] {task.id:<12} {arm:<11} rep{rep} "
-                      f"${res.cost_usd:.4f} {res.wall_s:6.1f}s "
-                      f"in={res.in_tok} out={res.out_tok}{cap}")
+                      f"tests {res.tests_passed}/{res.tests_total} "
+                      f"$eq{res.api_equiv_usd:.4f} {res.wall_s:6.1f}s "
+                      f"in={res.in_tok} out={res.out_tok} calls={res.n_calls}{cap}")
 
 
 if __name__ == "__main__":
