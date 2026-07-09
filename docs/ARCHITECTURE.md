@@ -12,7 +12,7 @@
 | [README.md](../README.md) | セットアップと使い方 | 実装済みの範囲を記載 |
 | [DESIGN-telemetry.md](DESIGN-telemetry.md) | 計測基盤 v2（精度・時間・トークン・コスト・枠消費のログ設計） | **実装済み**（2026-07-09） |
 | [DESIGN-dataset.md](DESIGN-dataset.md) | 学習データ基盤（routing / sft / ambiguity の3データセット） | **実装済み**（build_dataset.py） |
-| [DESIGN-testplan.md](DESIGN-testplan.md) | テストスイート設計（7カテゴリ22+タスク・静的採点・holdout分割） | **設計のみ・次の実装対象** |
+| [DESIGN-testplan.md](DESIGN-testplan.md) | テストスイート設計（7カテゴリ22+タスク・静的採点・holdout分割） | **A〜F実装済み**（2026-07-10。G/UIは未） |
 | [RESEARCH-BACKLOG.md](RESEARCH-BACKLOG.md) | 本線に載せない研究テーマ R1〜R9（着手条件つき） | 記録のみ |
 | [study/STUDY-1-llm.md](study/STUDY-1-llm.md) | 勉強ノート: LLMの仕組み（このプロジェクトに必要な分だけ） | 教材 |
 | [study/STUDY-2-harness.md](study/STUDY-2-harness.md) | 勉強ノート: 計測ルールの「なぜ」= ML評価の設計思想 | 教材 |
@@ -112,6 +112,7 @@
 2. ~~local arm の修正ループ~~ ✅ 同上（構文チェックベース。実行観察はまだ）
 3. ~~build_dataset.py~~ ✅ 同上（routing / sft / ambiguity）
 4. ~~local_only / cloud_only の実弾検証~~ ✅ 2026-07-10（全経路live。7B導入済み、30Bは未DL）
-5. **テストスイート suite v1 の実装（DESIGN-testplan.md の実装順序 1→7）** ← いまここ
-6. suite v1 凍結 → 全arm×3反復のベースライン計測 → データ蓄積
-7. ここから先は RESEARCH-BACKLOG.md（R1 カスケード → R2 学習ルーター…）
+5. ~~テストスイート suite v1（A〜F 22タスク・静的採点3方式）~~ ✅ 2026-07-10
+6. **G（Web画面・ui-static・Playwright専用ランナー）を tasks_ui/ に実装** ← 次
+7. 全arm×3反復のベースライン計測（枠を見ながら分割実行）→ データ蓄積
+8. ここから先は RESEARCH-BACKLOG.md（R1 カスケード → R2 学習ルーター…）
