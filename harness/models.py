@@ -16,7 +16,7 @@ class Budget:
     max_cost_usd は API換算額（api_equiv_usd）に対するキャップ。
     サブスクだと実支払 0 のままクラウドが暴走できてしまうため、換算額で縛る。
     """
-    max_cost_usd: float = 0.50
+    max_cost_usd: float = 2.00   # 実測: claude -p は最小タスクでも換算$1前後（固定費）
     max_turns: int = 40
     max_wall_s: float = 600.0
 

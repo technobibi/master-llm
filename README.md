@@ -80,13 +80,30 @@ source .env.local             # ベンチ実行前に毎回読み込む
 
 ### ローカル側（LM Studio）
 
-LM Studio を起動し、MLX バックエンドでモデル（例: `qwen3-coder-30b-a3b`）をロード、
-Developer タブで OpenAI 互換サーバを `http://localhost:1234` で起動しておく。
-
-## 使い方（ブラウザUI）
+GUIを開かなくても CLI（`lms`）で完結する:
 
 ```bash
-python -m scripts.serve_ui     # → http://127.0.0.1:8787 を開く
+brew install --cask lm-studio          # 初回のみ。GUIを一度起動して lms を bootstrap
+lms server start                       # OpenAI互換サーバを :1234 で起動
+lms get "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"   # 高速枠（約4.3GB）
+# 本命の30Bを使うなら: lms get "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit"
+lms load <モデル名> 
+export LOCAL_MODEL=<ロードしたモデルのID>   # /v1/models で表示される id に合わせる
+```
+
+GUI派は: LM Studio を起動 → モデルをロード → Developer タブで Server を Start でも同じ。
+
+## これは何であって何でないか
+
+**CLIツール**（`python -m scripts.run_bench` が本体）。Webアプリではない。
+付属の「ブラウザUI」は TensorBoard や `mlflow ui` と同じ**手元専用のダッシュボード**で、
+127.0.0.1 のみで動き、外部公開・デプロイ・アカウント・DBはない。
+サーバを止めれば消える、CLIの操作パネルにすぎない。
+
+## 使い方（ブラウザUI = ローカルダッシュボード）
+
+```bash
+python -m scripts.serve_ui     # → http://127.0.0.1:8787 を開く（起動中だけ使える）
 ```
 
 タスク確認・arm選択・ベンチ実行・ログ表示・集計・履歴が1画面で使える。
