@@ -1,23 +1,29 @@
-"""ローカル専用の簡易UIサーバ（標準ライブラリのみ・追加依存なし）。
+"""ローカル専用の簡易UIサーバ（標準ライブラリ + requests のみ・追加依存なし）。
 
 起動:  python -m scripts.serve_ui   →  http://127.0.0.1:8787
 
 できること = 現時点のCLI機能のUI化:
   - タスク一覧（tasks/*/task.yaml）
+  - 環境チェック（LM Studio 疎通・claude CLI の有無）
   - ベンチ実行（arm選択・反復数・タスク絞り込み）→ scripts.run_bench をサブプロセスで起動
-  - 実行ログの表示 / 中断
+  - 進捗・実行ログの表示 / 中断
   - 集計レポート（harness.report と同じ集計）と実行履歴（runs.jsonl の末尾）
 
 127.0.0.1 のみで待ち受ける。外部公開しない前提の開発用ツール。
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
+import time
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import requests
+
+from harness import config
 from harness.arms import ARMS
 from harness.report import aggregate, load
 from tasks.registry import load_tasks
@@ -35,11 +41,16 @@ class BenchJob:
         self.proc = None
         self.log = deque(maxlen=500)
         self.lock = threading.Lock()
+        self.total = 0  # 予定 run 数（進捗表示用）
 
     def running(self) -> bool:
         return self.proc is not None and self.proc.poll() is None
 
-    def start(self, arms, repeats, task=None) -> bool:
+    def done(self) -> int:
+        """完了 run 数 = run_bench が出す [ok]/[FAIL] 行を数える。"""
+        return sum(1 for line in self.log if line.startswith("["))
+
+    def start(self, arms, repeats, task=None, total=0) -> bool:
         with self.lock:
             if self.running():
                 return False
@@ -48,6 +59,7 @@ class BenchJob:
             if task:
                 cmd += ["--task", task]
             self.log.clear()
+            self.total = total
             self.log.append("$ " + " ".join(cmd))
             self.proc = subprocess.Popen(
                 cmd, cwd=ROOT, text=True,
@@ -69,6 +81,31 @@ class BenchJob:
 
 JOB = BenchJob()
 
+# --- 環境チェック（5秒キャッシュ。UIのポーリングで外部を叩きすぎない） ---
+_health_cache = {"ts": 0.0, "data": None}
+
+
+def health() -> dict:
+    now = time.monotonic()
+    if _health_cache["data"] and now - _health_cache["ts"] < 5:
+        return _health_cache["data"]
+    lm_ok, lm_model = False, None
+    try:
+        r = requests.get(f"{config.LOCAL_BASE_URL}/models", timeout=0.8)
+        if r.ok:
+            models = r.json().get("data", [])
+            lm_ok = True
+            lm_model = models[0]["id"] if models else None
+    except requests.RequestException:
+        pass
+    data = {
+        "lm_studio": lm_ok,
+        "lm_model": lm_model,
+        "claude_cli": shutil.which(config.CLAUDE_BIN) is not None,
+    }
+    _health_cache.update(ts=now, data=data)
+    return data
+
 
 def _task_dict(t):
     return {
@@ -85,7 +122,8 @@ def state() -> dict:
     return {
         "arms": list(ARMS),
         "tasks": [_task_dict(t) for t in load_tasks()],
-        "running": JOB.running(),
+        "health": health(),
+        "job": {"running": JOB.running(), "done": JOB.done(), "total": JOB.total},
         "log": list(JOB.log),
         "report": aggregate(rows),
         "recent": rows[-20:][::-1],
@@ -131,12 +169,16 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/bench":
             arms = [a for a in req.get("arms", []) if a in ARMS]
             if not arms:
-                return self._json({"error": "armを1つ以上選択"}, 400)
+                return self._json({"error": "比較条件（arm）を1つ以上選んでください"}, 400)
             repeats = max(1, min(int(req.get("repeats", 1)), 20))
             task = req.get("task") or None
-            if not JOB.start(arms, repeats, task):
-                return self._json({"error": "実行中です"}, 409)
-            return self._json({"ok": True})
+            n_tasks = len([t for t in load_tasks() if not task or t.id == task])
+            if n_tasks == 0:
+                return self._json({"error": "タスクが見つかりません"}, 400)
+            total = n_tasks * len(arms) * repeats
+            if not JOB.start(arms, repeats, task, total=total):
+                return self._json({"error": "すでに実行中です。終了か中断を待ってください"}, 409)
+            return self._json({"ok": True, "total": total})
 
         if self.path == "/api/stop":
             JOB.stop()

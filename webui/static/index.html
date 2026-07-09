@@ -8,62 +8,79 @@
 </head>
 <body>
 <header>
-  <h1>master-llm <span>ローカル/クラウド オーケストレーション評価</span></h1>
-  <div id="status" class="badge idle">待機中</div>
+  <div>
+    <h1>master-llm</h1>
+    <p class="sub">ローカルLLMとClaudeの組み合わせは、Claude単独よりお得か？を計測する</p>
+  </div>
+  <div id="env" class="env"><!-- 環境チェックバッジ --></div>
 </header>
 
 <main>
-  <section id="launch">
-    <h2>ベンチ実行</h2>
-    <div class="row">
+  <!-- ステップ1 -->
+  <section>
+    <h2><span class="step">1</span>タスクを選ぶ <span class="muted">— どの課題をやらせるか</span></h2>
+    <div id="task-cards" class="cards"></div>
+  </section>
+
+  <!-- ステップ2 -->
+  <section>
+    <h2><span class="step">2</span>比較条件を選ぶ <span class="muted">— 誰にやらせて比べるか（複数選択可）</span></h2>
+    <div id="arm-cards" class="cards"></div>
+  </section>
+
+  <!-- ステップ3 -->
+  <section>
+    <h2><span class="step">3</span>実行する</h2>
+    <div class="run-row">
       <div class="field">
-        <label>arm（比較条件）</label>
-        <div id="arm-boxes" class="checks"></div>
+        <label for="repeats">反復回数</label>
+        <select id="repeats">
+          <option value="1">1回（お試し）</option>
+          <option value="3">3回（本計測の最低ライン）</option>
+          <option value="5">5回（ばらつきまで見る）</option>
+        </select>
+        <p class="why">LLMの答えは毎回変わるため、1回の結果はアテになりません</p>
       </div>
-      <div class="field">
-        <label for="repeats">反復</label>
-        <input id="repeats" type="number" min="1" max="20" value="1">
-      </div>
-      <div class="field">
-        <label for="task-select">タスク</label>
-        <select id="task-select"><option value="">すべて</option></select>
-      </div>
-      <div class="field buttons">
-        <button id="run-btn">実行</button>
-        <button id="stop-btn" class="danger" disabled>中断</button>
+      <div class="field grow">
+        <div id="plan" class="plan">実行計画: —</div>
+        <div class="btns">
+          <button id="run-btn">▶ 実行する</button>
+          <button id="stop-btn" class="danger" hidden>■ 中断</button>
+        </div>
       </div>
     </div>
-    <p class="hint">
-      mock = モデル不要の配管確認 ／ local_only = LM Studio 起動が必要 ／
-      cloud_only・router = <b>サブスク枠を消費</b>。反復は本計測なら3以上。
-    </p>
-    <pre id="log" class="log" hidden></pre>
+    <div id="progress-wrap" hidden>
+      <div class="bar"><div id="bar-fill"></div></div>
+      <div id="progress-text" class="muted"></div>
+    </div>
+    <details id="log-details" hidden>
+      <summary>実行ログを見る</summary>
+      <pre id="log" class="log"></pre>
+    </details>
   </section>
 
-  <section id="report-sec">
-    <h2>集計（arm 別・3軸セット） <span id="n-runs" class="muted"></span></h2>
+  <!-- 結果 -->
+  <section>
+    <h2>結果 <span id="n-runs" class="muted"></span></h2>
+    <p class="why">3つの軸はセットで見る（精度だけ・コストだけで判断しない）。
+      成功 = 隠しテスト全通過 かつ 予算内。</p>
     <table id="report">
       <thead><tr>
-        <th>arm</th><th>runs</th><th>成功率</th><th>$平均</th><th>秒平均</th><th>out_tok平均</th>
+        <th>条件</th><th>実行数</th><th>成功率</th><th>コスト平均<span class="unit">$</span></th>
+        <th>時間平均<span class="unit">秒</span></th><th>出力トークン平均</th>
       </tr></thead>
       <tbody></tbody>
     </table>
-  </section>
-
-  <section id="recent-sec">
-    <h2>実行履歴（新しい順・直近20件）</h2>
-    <table id="recent">
-      <thead><tr>
-        <th>task</th><th>arm</th><th>rep</th><th>結果</th>
-        <th>$</th><th>秒</th><th>in</th><th>out</th><th>turns</th>
-      </tr></thead>
-      <tbody></tbody>
-    </table>
-  </section>
-
-  <section id="tasks-sec">
-    <h2>タスク一覧</h2>
-    <div id="task-cards"></div>
+    <details class="history">
+      <summary>実行履歴（直近20件）</summary>
+      <table id="recent">
+        <thead><tr>
+          <th>タスク</th><th>条件</th><th>何回目</th><th>結果</th>
+          <th>$</th><th>秒</th><th>入tok</th><th>出tok</th><th>ターン</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </details>
   </section>
 </main>
 
