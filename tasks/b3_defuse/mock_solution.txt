@@ -1,0 +1,1 @@
+MAX_RETRIES は config.py で定義され、client.py と worker.py で使われています。

@@ -1,0 +1,9 @@
+MESSAGES = {
+    "not_found": "見つかりません",
+    "forbidden": "権限がありません",
+    "timeout": "タイムアウトしました",
+}
+
+
+def msg(key):
+    return MESSAGES[key]

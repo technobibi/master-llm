@@ -1,0 +1,50 @@
+{
+  "answer_file": "VULNS.md",
+  "planted": [
+    {
+      "id": "d3v1",
+      "file": "preview.py",
+      "symbol": "fetch",
+      "lines": [
+        6,
+        7
+      ],
+      "type_keywords": [
+        "ssrf",
+        "内部",
+        "internal",
+        "リクエストフォージェリ"
+      ]
+    },
+    {
+      "id": "d3v2",
+      "file": "preview.py",
+      "symbol": "load_cache",
+      "lines": [
+        10,
+        11
+      ],
+      "type_keywords": [
+        "pickle",
+        "デシリアライズ",
+        "deserial",
+        "信頼"
+      ]
+    },
+    {
+      "id": "d3v3",
+      "file": "preview.py",
+      "symbol": "screenshot",
+      "lines": [
+        14,
+        16
+      ],
+      "type_keywords": [
+        "shell",
+        "コマンドインジェクション",
+        "command injection",
+        "注入"
+      ]
+    }
+  ]
+}

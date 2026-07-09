@@ -1,0 +1,52 @@
+{
+  "answer_file": "VULNS.md",
+  "planted": [
+    {
+      "id": "d2v1",
+      "file": "fileserver.py",
+      "symbol": "serve",
+      "lines": [
+        7,
+        8
+      ],
+      "type_keywords": [
+        "トラバーサル",
+        "traversal",
+        "\\.\\./",
+        "path"
+      ]
+    },
+    {
+      "id": "d2v2",
+      "file": "fileserver.py",
+      "symbol": "admin_delete",
+      "lines": [
+        11,
+        13
+      ],
+      "type_keywords": [
+        "認可",
+        "authoriz",
+        "権限",
+        "access control",
+        "認証"
+      ]
+    },
+    {
+      "id": "d2v3",
+      "file": "fileserver.py",
+      "symbol": "hash_pw",
+      "lines": [
+        16,
+        17
+      ],
+      "type_keywords": [
+        "md5",
+        "弱い",
+        "weak",
+        "ハッシュ",
+        "hash"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+import json
+import os
+
+
+class TodoList:
+    def __init__(self):
+        self.tasks = []
+
+    def add(self, text):
+        self.tasks.append(text)
+
+    def list_tasks(self):
+        return list(self.tasks)
+
+    def save(self, path):
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(self.tasks, f)
+
+    def load(self, path):
+        if not os.path.isfile(path):
+            return
+        with open(path, encoding='utf-8') as f:
+            self.tasks = json.load(f)

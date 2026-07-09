@@ -1,0 +1,17 @@
+id: f3_spec
+category: ambiguous
+tier: mid
+scoring: pytest
+holdout: true
+variant_of: f3
+target_file: validate.py
+prompt: |
+  validate.py の validate(name, email, age) を実装してください。
+  - email は RFC 風の正規表現で検証（ローカル@ドメイン.TLD）
+  - age は 0〜150 の整数
+  - name は空文字禁止
+  違反時は理由を含む ValueError を送出。正常時は (name, email, age) を返す。
+budget:
+  max_cost_usd: 2.00
+  max_turns: 20
+  max_wall_s: 400

@@ -1,0 +1,12 @@
+id: f2_vague
+category: ambiguous
+tier: mid
+scoring: pytest
+variant_of: f2
+target_file: logfmt.py
+prompt: |
+  logfmt.py の format_log で、ログを見やすくして。
+budget:
+  max_cost_usd: 2.00
+  max_turns: 20
+  max_wall_s: 400

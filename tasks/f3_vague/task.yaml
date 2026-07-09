@@ -1,0 +1,13 @@
+id: f3_vague
+category: ambiguous
+tier: mid
+scoring: pytest
+holdout: true
+variant_of: f3
+target_file: validate.py
+prompt: |
+  validate.py の validate で、変な入力ははじいて。
+budget:
+  max_cost_usd: 2.00
+  max_turns: 20
+  max_wall_s: 400

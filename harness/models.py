@@ -51,13 +51,20 @@ class RouterDecision:
 
 @dataclass
 class Task:
-    """1つの評価タスク（パケット）。"""
+    """1つの評価タスク（パケット）。docs/DESIGN-testplan.md §6 が仕様。"""
     id: str
-    category: str             # lookup / edit / translate / feature / debug ...
+    category: str             # edit / lookup / bughunt / vulnhunt / feature / ambiguous / ui
     prompt: str               # 全 arm に同一で渡す指示文
-    target_file: str          # 解を置くべきファイル（単一ファイルタスク用）
+    target_file: str          # 解を置くべきファイル（単一ファイルタスク用。report系は空可）
     dir: str                  # タスクパケットの絶対パス
     budget: Budget
+    # --- テストスイート用（既定値ありなので既存 fizzbuzz もそのまま読める） ---
+    tier: str = "low"                 # low / mid / high（難易度。ルーター特徴量にもなる）
+    scoring: str = "pytest"           # pytest / report-match / manifest-recall / ui-static
+    holdout: bool = False             # true は build_dataset から除外（評価専用）
+    variant_of: str = None            # 変種タスクの親ID（f1_vague → f1）
+    modality: str = "text"            # text / image（imageは画像添付が必要）
+    answer_file: str = None           # report系の解答ファイル名（BUGS.md 等）
 
 
 @dataclass

@@ -32,9 +32,16 @@ def _read_artifact(run_id: str, name: str):
         return None
 
 
+def _holdout_ids():
+    """holdout=true のタスクID集合。評価専用なので学習データから除外する
+    （docs/DESIGN-testplan.md §0-3。ベンチマークへの過適合防止）。"""
+    return {t.id for t in load_tasks() if getattr(t, "holdout", False)}
+
+
 def _v2_rows():
-    """schema v2 かつ mock 以外の run 行。(v2行, v1でスキップした数) を返す。"""
-    rows = [r for r in load() if r["arm"] != "mock"]
+    """schema v2・mock以外・holdout以外の run 行。(v2行, スキップ数) を返す。"""
+    hold = _holdout_ids()
+    rows = [r for r in load() if r["arm"] != "mock" and r["task"] not in hold]
     v2 = [r for r in rows if r.get("schema", 1) >= 2 and r.get("run_id")]
     return v2, len(rows) - len(v2)
 

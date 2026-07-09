@@ -1,0 +1,16 @@
+id: a3_messages
+category: edit
+tier: low
+scoring: pytest
+holdout: true
+target_file: messages.py
+prompt: |
+  messages.py の3つのエラーメッセージを日本語に置き換えてください。
+  - not_found → "見つかりません"
+  - forbidden → "権限がありません"
+  - timeout   → "タイムアウトしました"
+  関数 msg(key) がそのキーに対応する日本語文字列を返すようにします。
+budget:
+  max_cost_usd: 2.00
+  max_turns: 15
+  max_wall_s: 300

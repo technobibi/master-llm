@@ -1,0 +1,82 @@
+{
+  "answer_file": "BUGS.md",
+  "planted": [
+    {
+      "id": "c2b1",
+      "file": "utils.py",
+      "symbol": "same_day",
+      "lines": [
+        4,
+        5
+      ],
+      "type_keywords": [
+        "タイムゾーン",
+        "timezone",
+        "tz",
+        "utc"
+      ]
+    },
+    {
+      "id": "c2b2",
+      "file": "utils.py",
+      "symbol": "is_yes",
+      "lines": [
+        8,
+        9
+      ],
+      "type_keywords": [
+        "\\bis\\b",
+        "同一性",
+        "identity",
+        "==",
+        "比較"
+      ]
+    },
+    {
+      "id": "c2b3",
+      "file": "utils.py",
+      "symbol": "first_tag",
+      "lines": [
+        12,
+        13
+      ],
+      "type_keywords": [
+        "貪欲",
+        "greedy",
+        "正規表現",
+        "regex"
+      ]
+    },
+    {
+      "id": "c2b4",
+      "file": "utils.py",
+      "symbol": "read_all",
+      "lines": [
+        16,
+        17
+      ],
+      "type_keywords": [
+        "encoding",
+        "close",
+        "クローズ",
+        "with",
+        "リーク"
+      ]
+    },
+    {
+      "id": "c2b5",
+      "file": "utils.py",
+      "symbol": "ratio",
+      "lines": [
+        20,
+        21
+      ],
+      "type_keywords": [
+        "ゼロ除算",
+        "zero",
+        "division",
+        "0\\s*除"
+      ]
+    }
+  ]
+}

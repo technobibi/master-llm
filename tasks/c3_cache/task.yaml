@@ -1,0 +1,13 @@
+id: c3_cache
+category: bughunt
+tier: high
+scoring: manifest-recall
+holdout: true
+answer_file: BUGS.md
+prompt: |
+  apiclient.py にはバグが 2 件あります。BUGS.md に「ファイル名:行番号」と説明を書いてください。
+  コードは修正しなくて構いません。
+budget:
+  max_cost_usd: 2.00
+  max_turns: 25
+  max_wall_s: 400

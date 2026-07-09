@@ -1,0 +1,23 @@
+{
+  "answer_file": "ANSWER.md",
+  "checks": [
+    {
+      "desc": "定義元 config.py",
+      "any": [
+        "config\\.py"
+      ]
+    },
+    {
+      "desc": "使用箇所 client.py",
+      "any": [
+        "client\\.py"
+      ]
+    },
+    {
+      "desc": "使用箇所 worker.py",
+      "any": [
+        "worker\\.py"
+      ]
+    }
+  ]
+}

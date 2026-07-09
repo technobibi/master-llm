@@ -12,6 +12,59 @@ from harness.applier import apply_code
 from harness.models import CallResult, Task
 
 
+_SKIP_CONTEXT = {"__pycache__", "_hidden_tests"}
+
+
+def _repo_context(cwd: str, limit_bytes: int = 20000) -> str:
+    """cwd 内のファイル（=seedのコピー）を読んでプロンプトに添える文脈ブロックを作る。
+
+    クラウド(claude -p)は自分でファイルを読めるが、ローカルの単発呼び出しは
+    プロンプトしか見えない。同じ土俵にするため、ローカルには seed の中身を渡す。
+    隠しテスト・解答ファイルは含めない（cwd にまだ無い or 別ディレクトリなので自然に除外）。
+    """
+    parts, total = [], 0
+    for root, dirs, files in os.walk(cwd):
+        dirs[:] = [d for d in dirs if d not in _SKIP_CONTEXT]
+        for fn in sorted(files):
+            rel = os.path.relpath(os.path.join(root, fn), cwd)
+            try:
+                with open(os.path.join(root, fn), encoding="utf-8") as f:
+                    body = f.read()
+            except (OSError, UnicodeDecodeError):
+                continue
+            block = f"--- {rel} ---\n{body}\n"
+            if total + len(block) > limit_bytes:
+                parts.append(f"(残りのファイルは省略)")
+                return "\n".join(parts)
+            parts.append(block)
+            total += len(block)
+    return "\n".join(parts)
+
+
+def _local_prompt(task: Task, cwd: str) -> str:
+    """ローカル用プロンプト。指示＋現在のリポジトリ内容（行番号付き）。"""
+    ctx = _repo_context(cwd)
+    if not ctx:
+        return task.prompt
+    return (task.prompt
+            + "\n\n===== 現在のファイル内容（行番号付き。これを見て回答すること） =====\n"
+            + _with_line_numbers(ctx))
+
+
+def _with_line_numbers(text: str) -> str:
+    """`--- file ---` ヘッダ行はそのまま、コード行に 1 始まりの行番号を振る
+    （バグ/脆弱性報告で行番号を答えさせるため）。ファイルごとに採番し直す。"""
+    out, n = [], 0
+    for line in text.splitlines():
+        if line.startswith("--- ") and line.endswith(" ---"):
+            out.append(line)
+            n = 0
+        else:
+            n += 1
+            out.append(f"{n:4}| {line}")
+    return "\n".join(out)
+
+
 def _local_smoke(cwd: str, target_file: str):
     """ローカル修正ループ用の公開スモークチェック（構文チェックのみ）。
 
@@ -34,13 +87,34 @@ def arm_cloud_only(task: Task, cwd: str):
     return [call], None
 
 
+def _write_answer(text: str, cwd: str, answer_file: str) -> None:
+    """report系タスク: モデルの応答本文をそのまま解答ファイルに書く（コード抽出しない）。"""
+    path = os.path.join(cwd, answer_file)
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text or "")
+
+
 def arm_local_only(task: Task, cwd: str):
-    """ローカルだけ。生成 → 構文チェック → エラーを渡して再生成、を最大
-    LOCAL_MAX_RETRIES 回。クラウド（自律エージェント）との非対称性を緩和する
-    最小の修正ループ。実行結果まで見るループは将来の課題。
+    """ローカルだけ。
+
+    - report系（answer_file 指定 = 調査/バグ/脆弱性）: 1発生成して応答を解答ファイルへ。
+      コードではないので構文チェック・再生成はしない。
+    - code系（pytest）: 生成 → 構文チェック → エラーを渡して再生成、を最大 LOCAL_MAX_RETRIES 回。
+      クラウド（自律エージェント）との非対称性を緩和する最小の修正ループ。
     """
+    base = _local_prompt(task, cwd)  # 指示＋seedの中身（クラウドとの非対称性を緩和）
+
+    if task.answer_file:
+        call = clients.call_local(base, role="solo")
+        if not call.error:
+            _write_answer(call.text, cwd, task.answer_file)
+        return [call], None
+
     calls = []
-    prompt = task.prompt
+    prompt = base
     for attempt in range(1 + config.LOCAL_MAX_RETRIES):
         call = clients.call_local(prompt, role="solo" if attempt == 0 else "retry")
         calls.append(call)
@@ -50,7 +124,7 @@ def arm_local_only(task: Task, cwd: str):
         err = _local_smoke(cwd, task.target_file)
         if err is None:
             break
-        prompt = (task.prompt
+        prompt = (base
                   + "\n\n前回の解答は次のエラーで動かなかった。"
                   + "修正した完全なコードを1つのコードブロックで出すこと:\n" + err)
     return calls, None
@@ -70,12 +144,19 @@ def arm_router(task: Task, cwd: str):
 
 
 def arm_mock(task: Task, cwd: str):
-    """配管テスト用。モデル不要。模範解 (mock_solution.txt) を書くだけ。"""
+    """配管テスト用。モデル不要。模範解 (mock_solution.txt) を書くだけ。
+
+    report系は解答ファイルへ生テキストで、code系はコードブロックとして書く。
+    """
     t0 = time.perf_counter()
     sample = os.path.join(task.dir, "mock_solution.txt")
     if os.path.isfile(sample):
-        with open(sample) as f:
-            apply_code("```\n" + f.read() + "\n```", cwd, task.target_file)
+        with open(sample, encoding="utf-8") as f:
+            content = f.read()
+        if task.answer_file:
+            _write_answer(content, cwd, task.answer_file)
+        else:
+            apply_code("```\n" + content + "\n```", cwd, task.target_file)
     call = CallResult(provider="mock", model="mock", in_tok=100, out_tok=50,
                       wall_s=time.perf_counter() - t0, text="mock")
     return [call], None

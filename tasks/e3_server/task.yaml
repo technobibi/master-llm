@@ -1,0 +1,17 @@
+id: e3_server
+category: feature
+tier: high
+scoring: pytest
+holdout: true
+target_file: store.py
+prompt: |
+  store.py にインメモリのアイテムストアを実装してください。
+  - ItemStore クラス
+  - add(name, price): アイテムを追加し、連番の id(1始まり) を返す。
+    name が空文字、または price が負のときは ValueError を送出する
+  - get(item_id): その id のアイテム dict {"id","name","price"} を返す。無ければ KeyError
+  - filter_by_max_price(limit): price <= limit のアイテム dict のリストを id 昇順で返す
+budget:
+  max_cost_usd: 2.00
+  max_turns: 30
+  max_wall_s: 500

@@ -1,0 +1,12 @@
+id: a2_rename
+category: edit
+tier: low
+scoring: pytest
+target_file: calc.py
+prompt: |
+  calc.py の関数 calc(items) を calculate_total(items) に改名してください。
+  合計を返す挙動は変えないこと。関数名だけを変更します。
+budget:
+  max_cost_usd: 2.00
+  max_turns: 15
+  max_wall_s: 300

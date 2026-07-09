@@ -1,0 +1,5 @@
+# バグ報告
+
+- cart.py:3 total() は range(len(items)-1) で最後の要素を合計しないオフバイワン。
+- cart.py:9 apply_discount() が加算になっており割引の符号が逆。
+- cart.py:12 add_item() が可変デフォルト引数 items=[] を使っている。

@@ -1,0 +1,14 @@
+id: e2_todo
+category: feature
+tier: mid
+scoring: pytest
+target_file: todo.py
+prompt: |
+  todo.py の TodoList に JSON 永続化を追加してください。
+  - save(path): 現在のタスク一覧を JSON でファイルに書き出す
+  - load(path): JSON ファイルから読み込んで復元する（ファイルが無ければ空のまま）
+  既存の add(text) と list_tasks()（文字列のリストを返す）は変えないこと。
+budget:
+  max_cost_usd: 2.00
+  max_turns: 25
+  max_wall_s: 400

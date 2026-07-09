@@ -1,0 +1,12 @@
+id: c1_cart
+category: bughunt
+tier: mid
+scoring: manifest-recall
+answer_file: BUGS.md
+prompt: |
+  cart.py にはバグが 3 件あります。それぞれについて BUGS.md に
+  「ファイル名:行番号」と説明を1件ずつ書いてください。コードは修正しなくて構いません。
+budget:
+  max_cost_usd: 2.00
+  max_turns: 20
+  max_wall_s: 300

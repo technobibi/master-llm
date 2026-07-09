@@ -1,0 +1,36 @@
+{
+  "answer_file": "VULNS.md",
+  "planted": [
+    {
+      "id": "d1v1",
+      "file": "login.py",
+      "symbol": "find_user",
+      "lines": [
+        6,
+        7
+      ],
+      "type_keywords": [
+        "sql",
+        "インジェクション",
+        "injection"
+      ]
+    },
+    {
+      "id": "d1v2",
+      "file": "login.py",
+      "symbol": "API_KEY",
+      "lines": [
+        3,
+        3
+      ],
+      "type_keywords": [
+        "ハードコード",
+        "hardcode",
+        "秘密",
+        "secret",
+        "鍵",
+        "key"
+      ]
+    }
+  ]
+}

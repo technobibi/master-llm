@@ -1,0 +1,13 @@
+id: b1_locate
+category: lookup
+tier: low
+scoring: report-match
+answer_file: ANSWER.md
+prompt: |
+  このプロジェクトで「入力のバリデーション（検証）」を行っている関数は、
+  どのファイルのどの関数ですか。ANSWER.md に「ファイル名」と「関数名」を書いてください。
+  コードは変更しないでください。
+budget:
+  max_cost_usd: 2.00
+  max_turns: 15
+  max_wall_s: 300

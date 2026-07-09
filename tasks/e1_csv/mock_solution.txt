@@ -1,0 +1,6 @@
+def group_sum(rows, key, value):
+    out = {}
+    for r in rows:
+        k = r[key]
+        out[k] = out.get(k, 0) + r[value]
+    return out

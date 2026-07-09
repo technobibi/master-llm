@@ -1,0 +1,7 @@
+# バグ報告
+
+- utils.py:5 same_day はタイムゾーンを無視して date() 比較している。
+- utils.py:9 is_yes が `is` で文字列比較している（== を使うべき）。
+- utils.py:13 first_tag の正規表現 <.*> が貪欲マッチ。
+- utils.py:17 read_all が encoding 未指定かつファイルを close していない。
+- utils.py:21 ratio が b=0 のゼロ除算をガードしていない。
