@@ -1,6 +1,7 @@
-"""tasks/*/task.yaml を読み込んで Task のリストを返す。
+"""tasks/*/task.yaml と tasks_ui/*/task.yaml を読み込んで Task のリストを返す。
 
-tasks/<id>/ に task.yaml・seed/・tests/ を置けば自動で認識される。
+tasks/<id>/ に task.yaml・seed/・tests/ を置けば自動認識。
+Web画面タスクは tasks_ui/<id>/ に置く（採点に Playwright を使うため分離。DESIGN-testplan §4）。
 """
 import os
 
@@ -9,12 +10,20 @@ import yaml
 from harness.models import Budget, Task
 
 TASKS_ROOT = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(TASKS_ROOT)
+# tasks/ = 自作スイート、tasks_ui/ = Web画面、tasks_humaneval/ 等 = 公開ベンチの取り込み(gitignore)
+TASK_ROOTS = [TASKS_ROOT,
+              os.path.join(_PROJECT_ROOT, "tasks_ui"),
+              os.path.join(_PROJECT_ROOT, "tasks_humaneval")]
 
 
 def load_tasks():
     tasks = []
-    for name in sorted(os.listdir(TASKS_ROOT)):
-        d = os.path.join(TASKS_ROOT, name)
+    entries = []
+    for root in TASK_ROOTS:
+        if os.path.isdir(root):
+            entries += [os.path.join(root, n) for n in sorted(os.listdir(root))]
+    for d in entries:
         meta = os.path.join(d, "task.yaml")
         if not os.path.isfile(meta):
             continue

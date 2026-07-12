@@ -12,5 +12,9 @@ runs/*.jsonl
 runs/artifacts/
 datasets/
 
+# 公開ベンチの取り込み（インポーターで各自生成。派生物なのでコミットしない）
+tasks_humaneval/
+tasks_mbpp/
+
 # macOS
 .DS_Store
