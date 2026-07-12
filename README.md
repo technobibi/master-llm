@@ -16,8 +16,12 @@
 
 全体像・設計・研究計画は `docs/` にある。**入口は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**（図解+索引）。
 
-- [docs/DESIGN-telemetry.md](docs/DESIGN-telemetry.md) — 計測基盤 v2 の設計（次の実装対象）
-- [docs/DESIGN-dataset.md](docs/DESIGN-dataset.md) — 学習データ基盤の設計（routing / sft / ambiguity）
+- [docs/DESIGN-telemetry.md](docs/DESIGN-telemetry.md) — ログスキーマ（実装済み・source of truth）
+- [docs/DESIGN-testplan.md](docs/DESIGN-testplan.md) — テストスイート（A〜G・静的採点・妥当性の限界）
+- [docs/DESIGN-agent.md](docs/DESIGN-agent.md) — ローカル・エージェント（ツール使用ループ）
+- [docs/DESIGN-router.md](docs/DESIGN-router.md) — ②ルーティングデータと判定（天秤）の確定設計
+- [docs/DESIGN-learning-loop.md](docs/DESIGN-learning-loop.md) — 学習ループ・データ共有・実行隔離
+- [docs/DESIGN-dataset.md](docs/DESIGN-dataset.md) — 学習データ基盤（routing / sft / ambiguity）
 - [docs/RESEARCH-BACKLOG.md](docs/RESEARCH-BACKLOG.md) — 本線に載せない研究テーマの記録
 
 ## ディレクトリ構成
@@ -35,21 +39,20 @@ master-llm/
 │   ├── clients.py          #   モデル呼び出し境界（ローカル /v1 ・ claude -p）
 │   ├── applier.py          #   単発応答→ファイル反映（簡易エージェント）
 │   ├── router.py           #   ルーティング判定（← いずれ学習させる中核）
-│   ├── arms.py             #   条件（cloud_only / local_only / router / mock）
+│   ├── agent.py            #   ローカルのツール使用エージェント
+│   ├── arms.py             #   条件（mock / local_only / local_agent / cloud_only / router）
+│   ├── scoring.py          #   採点の振り分け（pytest / report-match / manifest-recall / ui-static）
 │   ├── workspace.py        #   実行ごとにまっさらな作業コピーを用意
 │   ├── runner.py           #   1タスク実行 + 隠しテスト検証 + ログ追記
 │   └── report.py           #   runs.jsonl を arm 別に集計
-├── tasks/                  # タスクパケット（データ + 隠しテスト）
-│   ├── registry.py         #   tasks/*/task.yaml を読み込む
-│   └── fizzbuzz/           #   サンプル backend タスク
-│       ├── task.yaml       #     メタ + 全armに渡す指示文 + 予算キャップ
-│       ├── seed/           #     エージェントに渡す初期状態（編集対象）
-│       │   └── fizzbuzz.py
-│       ├── tests/          #     ★隠し評価テスト（エージェントには見せない）
-│       │   └── test_hidden.py
-│       └── mock_solution.txt  # mock arm 用の模範解
+├── tasks/                  # 自作タスクスイート suite v1（A〜F + fizzbuzz）+ SUITE-v1.yaml
+│   ├── registry.py         #   tasks / tasks_ui / tasks_humaneval を走査
+│   └── <id>/               #   task.yaml + seed/ + tests/（隠し採点）+ mock_solution.txt
+├── tasks_ui/               # Web画面タスク G（ui-static採点・Playwright）
 ├── scripts/                # CLI 入口
 │   ├── run_bench.py        #   全タスク × arm × 反復 を実行
+│   ├── build_dataset.py    #   ログから学習データ生成（routing / sft / ambiguity）
+│   ├── import_humaneval.py #   公開ベンチ取り込み → tasks_humaneval/（gitignore）
 │   ├── show_report.py      #   集計テーブルを表示
 │   └── serve_ui.py         #   ブラウザUI起動（http://127.0.0.1:8787）
 ├── webui/                  # 簡易UI（標準ライブラリのみ・localhost限定）

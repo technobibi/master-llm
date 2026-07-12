@@ -35,7 +35,7 @@
                                    ▼
                           ┌────────────────┐
                           │  harness/arms  │ 比較条件: mock / local_only /
-                          └───┬────────┬───┘            cloud_only / router
+                          └───┬────────┬───┘   local_agent / cloud_only / router
                               │        │
                  router arm のみ判定    │
                        ▼               │
@@ -85,7 +85,7 @@
 | `harness/clients.py` | モデル呼び出し境界（ローカル /v1・claude -p） | トークン・時間・$ の計測点 |
 | `harness/applier.py` | 単発応答 → ファイル反映 | ローカル用の簡易エージェント |
 | `harness/router.py` | ルーティング判定 | 今はキーワードルール。将来学習させる中核 |
-| `harness/arms.py` | 比較条件（mock / local_only / cloud_only / router） | arm を足すならここ |
+| `harness/arms.py` | 比較条件（mock / local_only / local_agent / cloud_only / router） | arm を足すならここ |
 | `harness/workspace.py` | 実行ごとのまっさら作業コピー | 実行間の汚染防止 |
 | `harness/runner.py` | 1 run の司令塔 + 隠しテスト検証 + ログ | 計測基盤 v2 の主な改修先 |
 | `harness/report.py` | ログの集計表 | 中央値化・regret が今後の改修 |
@@ -100,24 +100,25 @@
 5. **3軸+枠消費をセットで見る**: 精度 / API換算$ / 時間 / サブスク枠。単独の軸で語らない
 6. **ログは append-only・生データ優先**（詳細は DESIGN-telemetry.md）
 
+## 実装済み（2026-07 時点）
+
+計測基盤 v2（runs/calls/router jsonl + artifacts + 中央値 + オラクル regret）／
+テストスイート suite v1（A〜G 25タスク・静的採点4方式）／ 3 arm（local_only=素・
+local_agent=ツール使用エージェント v2・cloud=claude -p）／ ローカルへの seed 注入 +
+規模特徴 ／ 公開ベンチ取り込み（HumanEval インポーター）／ ブラウザUI。
+
 ## 既知の設計課題（未解決のまま前提にしない）
 
-- **arm の非対称性（緩和済み・未解消）**: local に「生成→構文チェック→再生成」ループは
-  入った（2026-07-09）が、cloud のようなツール使用・実行結果の観察はまだない。
-  完全対等ではないことをレポートの解釈時に忘れない。
-- **タスクが1個**: fizzbuzz のみ。結論を出すにはカテゴリ横断で 10〜20 タスク必要。
-- **ターン単位の usage 未取得**: `claude -p` の合計しか取っていない。コンテキスト
-  成長曲線（曖昧さ研究の本丸）には `--output-format stream-json` への切り替えが要る。
+- **arm の非対称性（緩和済み・未解消）**: local_agent でツール使用の器は揃えたが、
+  cloud（claude -p）とは器が別物。完全対等ではないことをレポート解釈時に忘れない。
+- **タスクの規模が小さい**: 自作25タスクは最大5ファイル。複数ファイルの大規模タスクが無い
+  （→ SWE-bench 取り込みで穴埋め。DESIGN-router §8）。
+- **設計バイアス**: タスクの多くを自分で作った（→ DESIGN-testplan の妥当性の限界。公開ベンチで緩和）。
+- **ターン単位の usage 未取得**: `claude -p` の合計のみ。コンテキスト成長曲線には stream-json が要る。
 
-## いま→次（ロードマップ、上から順）
+## いま→次
 
-1. ~~計測基盤 v2 の実装~~ ✅ 2026-07-09（runs/calls/router jsonl + artifacts + 中央値 + regret）
-2. ~~local arm の修正ループ~~ ✅ 同上（構文チェックベース。実行観察はまだ）
-3. ~~build_dataset.py~~ ✅ 同上（routing / sft / ambiguity）
-4. ~~local_only / cloud_only の実弾検証~~ ✅ 2026-07-10（全経路live。7B導入済み、30Bは未DL）
-5. ~~テストスイート suite v1（A〜F 22タスク・静的採点3方式）~~ ✅ 2026-07-10
-6. ~~ローカル・エージェント（ツール使用ループ）と local_agent arm~~ ✅ 2026-07-10
-7. ~~G（Web画面・ui-static・Playwright）を tasks_ui/ に実装~~ ✅ 2026-07-10（g3_image除く）
-8. **全arm×3反復のベースライン計測（枠を見ながら分割実行）→ データ蓄積** ← いまここ
-9. ここから先は RESEARCH-BACKLOG.md（R1 カスケード → R2 学習ルーター…）
-   と g3_image（画像添付の配管）
+- **ベースライン計測**: 公開ベンチ + 自作タスクを 30B エージェント × cloud で回してデータ蓄積
+- **タスクを増やす**: MBPP/SWE-bench 取り込み（規模の穴埋め）
+- **学習ルーター**（所有者の領域）: 設計は DESIGN-router、着手条件は RESEARCH-BACKLOG R2
+- 研究テーマは RESEARCH-BACKLOG.md（R1 カスケード → R2 学習ルーター → R5 蒸留 …）

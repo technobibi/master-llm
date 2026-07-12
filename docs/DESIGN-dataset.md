@@ -125,11 +125,7 @@ python -m scripts.build_dataset --kind ambiguity --ver 1
 - 出力先が既に存在したらエラーで止まる（immutable 原則の強制）。
 - 最後に件数サマリを表示: 収録 N 件 / ペア不成立でスキップ M 件 / エラー K 件。
 
-## 実装ステップ
+## 実装状況
 
-1. telemetry v2 のうち **artifacts 保存だけ先行実装**（prompt / 応答 / diff / pytest 出力）。
-   ここが揃わないとデータセットの原料がない。
-2. `build_dataset.py --kind routing`（ログ2ファイルの join だけなので最初に書きやすい）
-3. `--kind sft`（diff.patch の収集）
-4. `--kind ambiguity` + `annotations/` の運用開始
-5. タスク数を増やす（データ基盤より、実はこれが一番効く。カテゴリ横断で 10〜20 タスク）
+`scripts/build_dataset.py`（routing / sft / ambiguity）は**実装済み**。holdout タスクは自動除外。
+残る本線は「タスク数を増やす」＝データの原料を増やすこと（公開ベンチ取り込み → DESIGN-router §7）。
