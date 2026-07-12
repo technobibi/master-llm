@@ -16,11 +16,37 @@ SIMPLE_HINTS = (
 )
 
 
+def _seed_scale(task):
+    """seed/ の規模（ファイル数・総バイト数）。埋め込みが捉えられない『規模』軸を明示的に持つ。
+    埋め込みは意味は捉えるが「5ファイル vs 50ファイル」を区別できないため、規模は別特徴で。
+    （docs/DESIGN-agent.md / ルーティング設計メモ参照）"""
+    import os
+    seed = os.path.join(task.dir, "seed")
+    n_files, total_bytes = 0, 0
+    if os.path.isdir(seed):
+        for root, _, files in os.walk(seed):
+            for fn in files:
+                if fn.endswith(".pyc"):
+                    continue
+                n_files += 1
+                try:
+                    total_bytes += os.path.getsize(os.path.join(root, fn))
+                except OSError:
+                    pass
+    return n_files, total_bytes
+
+
 def extract_features(prompt: str, task=None) -> dict:
-    """判定に使う特徴量。将来の学習器も同じ入り口を使う（原文は artifacts にあるので追加も可能）。"""
+    """判定に使う特徴量。将来の学習器も同じ入り口を使う（原文は artifacts にあるので追加も可能）。
+
+    2系統を持つ:
+      - 意味系: prompt の内容（将来ここに埋め込みベクトルを足す）
+      - 規模系: ファイル数・バイト数など（埋め込みでは測れない大きさの軸）
+    """
     p = prompt.lower()
     hit = next((h for h in SIMPLE_HINTS if h.lower() in p), None)
     feats = {
+        # --- 意味系 ---
         "prompt_len": len(prompt),
         "n_words": len(prompt.split()),
         "prompt_lang": "ja" if any(ord(c) >= 0x3000 for c in prompt) else "en",
@@ -28,6 +54,13 @@ def extract_features(prompt: str, task=None) -> dict:
     }
     if task is not None:
         feats["category"] = task.category
+        feats["tier"] = getattr(task, "tier", "low")
+        feats["scoring"] = getattr(task, "scoring", "pytest")
+        feats["modality"] = getattr(task, "modality", "text")
+        # --- 規模系（ローカルで収まる大きさかの判定に使う。埋め込みとは別軸）---
+        n_files, seed_bytes = _seed_scale(task)
+        feats["n_seed_files"] = n_files
+        feats["seed_bytes"] = seed_bytes
     return feats
 
 
