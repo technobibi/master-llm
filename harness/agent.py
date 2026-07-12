@@ -19,27 +19,43 @@ from harness import config
 from harness.applier import apply_code
 from harness.models import CallResult
 
-AGENT_VERSION = "local-agent-v2"  # v2: 成果物ができるまで終わらせない解決ループ+保険
+AGENT_VERSION = "local-agent-v3"  # v3: grep・範囲read・壁時計キャップ（実リポ=SWE-bench 対応）
 
 _SYSTEM = """あなたはコーディングエージェントです。作業ディレクトリでタスクを完成させます。
-使えるツール: list_files, read_file, write_file, run_tests, finish。
+使えるツール: list_files, read_file, grep, write_file, run_tests, finish。
 進め方:
 1. まず list_files と read_file で現状を必ず確認する（推測でコードを書かない）。
+   大きなリポジトリでは grep で当たりを付け、read_file は start_line/end_line で範囲を絞る。
 2. write_file で編集・作成する。調査系の課題は指定された解答ファイル(例 BUGS.md)を write_file で作る。
 3. コード課題は run_tests で確認し、失敗したら直す。
 4. 完了したら finish を呼ぶ。
 run_tests は公開スモークテストで、最終評価は別の隠しテストで行われます。"""
 
-_SKIP = {"_hidden_tests", "__pycache__"}
+_SKIP = {"_hidden_tests", "__pycache__", ".git"}
 
 _TOOLS = [
     {"type": "function", "function": {
-        "name": "list_files", "description": "作業ディレクトリのファイル一覧",
-        "parameters": {"type": "object", "properties": {}}}},
-    {"type": "function", "function": {
-        "name": "read_file", "description": "ファイルの内容を行番号付きで読む",
+        "name": "list_files",
+        "description": "ファイル一覧。path でサブディレクトリに絞れる（大きいリポジトリ向け）",
         "parameters": {"type": "object",
-                       "properties": {"path": {"type": "string"}}, "required": ["path"]}}},
+                       "properties": {"path": {"type": "string",
+                                               "description": "起点ディレクトリ（省略時はルート）"}}}}},
+    {"type": "function", "function": {
+        "name": "read_file",
+        "description": "ファイルの内容を行番号付きで読む。大きいファイルは start_line/end_line で範囲指定",
+        "parameters": {"type": "object",
+                       "properties": {"path": {"type": "string"},
+                                      "start_line": {"type": "integer"},
+                                      "end_line": {"type": "integer"}},
+                       "required": ["path"]}}},
+    {"type": "function", "function": {
+        "name": "grep",
+        "description": "全ファイルから正規表現でパターン検索し「ファイル:行番号: 内容」を返す",
+        "parameters": {"type": "object",
+                       "properties": {"pattern": {"type": "string"},
+                                      "path": {"type": "string",
+                                               "description": "検索範囲のディレクトリ（省略時は全体）"}},
+                       "required": ["pattern"]}}},
     {"type": "function", "function": {
         "name": "write_file", "description": "ファイルに内容を書き込む（新規作成も可）",
         "parameters": {"type": "object",
@@ -54,7 +70,11 @@ _TOOLS = [
                        "properties": {"summary": {"type": "string"}}}}},
 ]
 
-_MAX_TOOL_RESULT = 4000
+_MAX_TOOL_RESULT = config.AGENT_TOOL_RESULT_MAX
+_MAX_LIST_ENTRIES = 400   # list_files の最大件数（サブディレクトリ指定を促す）
+_MAX_READ_LINES = 250     # read_file の1回あたり最大行数（範囲指定を促す）
+_MAX_GREP_MATCHES = 60    # grep の最大ヒット数
+_GREP_FILE_LIMIT = 1_000_000  # これより大きいファイルは grep しない（バイナリ・生成物対策）
 
 
 def _resolve(cwd: str, path: str) -> str:
@@ -70,24 +90,86 @@ def _resolve(cwd: str, path: str) -> str:
     return full
 
 
-def _list_files(cwd: str) -> str:
+def _resolve_dir(cwd: str, path: str) -> str:
+    """ディレクトリ指定（list_files / grep の起点）を cwd 内に閉じ込める。空はルート。"""
+    if not path or not path.strip() or path.strip() in (".", "./"):
+        return os.path.realpath(cwd)
+    full = os.path.realpath(os.path.join(cwd, path))
+    root = os.path.realpath(cwd)
+    if full != root and not full.startswith(root + os.sep):
+        raise ValueError(f"作業ディレクトリの外は操作できません: {path}")
+    if not os.path.isdir(full):
+        raise ValueError(f"ディレクトリが存在しません: {path}")
+    return full
+
+
+def _list_files(cwd: str, path: str = "") -> str:
+    base = _resolve_dir(cwd, path)
+    rel_root = os.path.realpath(cwd)  # base は realpath 済み。相対表示も realpath 基準で揃える
     out = []
-    for root, dirs, files in os.walk(cwd):
+    for root, dirs, files in os.walk(base):
         dirs[:] = [d for d in dirs if d not in _SKIP]
         for fn in sorted(files):
             if fn.endswith(".pyc"):
                 continue
-            out.append(os.path.relpath(os.path.join(root, fn), cwd))
-    return "\n".join(sorted(out)) or "(ファイルなし)"
+            out.append(os.path.relpath(os.path.join(root, fn), rel_root))
+        if len(out) > _MAX_LIST_ENTRIES:
+            break
+    out.sort()
+    if len(out) > _MAX_LIST_ENTRIES:
+        head = "\n".join(out[:_MAX_LIST_ENTRIES])
+        return (f"{head}\n... 他多数（{_MAX_LIST_ENTRIES}件で打ち切り）。"
+                "path でサブディレクトリを指定するか grep で絞り込むこと。")
+    return "\n".join(out) or "(ファイルなし)"
 
 
-def _read_file(cwd: str, path: str) -> str:
+def _read_file(cwd: str, path: str, start_line: int = 0, end_line: int = 0) -> str:
     full = _resolve(cwd, path)
     if not os.path.isfile(full):
         return f"ファイルが存在しません: {path}"
     with open(full, encoding="utf-8", errors="replace") as f:
         lines = f.read().splitlines()
-    return "\n".join(f"{i:4}| {ln}" for i, ln in enumerate(lines, 1))
+    total = len(lines)
+    start = max(1, int(start_line or 1))
+    end = min(total, int(end_line) if end_line else total)
+    if end - start + 1 > _MAX_READ_LINES:
+        end = start + _MAX_READ_LINES - 1
+    body = "\n".join(f"{i:4}| {lines[i - 1]}" for i in range(start, end + 1))
+    if start > 1 or end < total:
+        body += f"\n（全{total}行中 {start}〜{end} 行を表示。続きは start_line/end_line を指定）"
+    return body
+
+
+def _grep(cwd: str, pattern: str, path: str = "") -> str:
+    import re
+    base = _resolve_dir(cwd, path)
+    try:
+        rx = re.compile(pattern)
+    except re.error:
+        rx = re.compile(re.escape(pattern))  # 正規表現として壊れていたら文字通り検索
+    rel_root = os.path.realpath(cwd)
+    hits = []
+    for root, dirs, files in os.walk(base):
+        dirs[:] = [d for d in dirs if d not in _SKIP]
+        for fn in sorted(files):
+            full = os.path.join(root, fn)
+            try:
+                if fn.endswith(".pyc") or os.path.getsize(full) > _GREP_FILE_LIMIT:
+                    continue
+                with open(full, encoding="utf-8", errors="replace") as f:
+                    text = f.read()
+            except OSError:
+                continue
+            if "\x00" in text[:1024]:  # バイナリはスキップ
+                continue
+            rel = os.path.relpath(full, rel_root)
+            for i, ln in enumerate(text.splitlines(), 1):
+                if rx.search(ln):
+                    hits.append(f"{rel}:{i}: {ln.strip()[:200]}")
+                    if len(hits) >= _MAX_GREP_MATCHES:
+                        return ("\n".join(hits)
+                                + f"\n（{_MAX_GREP_MATCHES}件で打ち切り。パターンか path を絞ること）")
+    return "\n".join(hits) or f"ヒットなし: {pattern}"
 
 
 def _write_file(cwd: str, path: str, content: str) -> str:
@@ -113,9 +195,12 @@ def _run_tests(cwd: str) -> str:
 def _dispatch(name: str, args: dict, cwd: str) -> str:
     try:
         if name == "list_files":
-            return _list_files(cwd)
+            return _list_files(cwd, args.get("path", ""))
         if name == "read_file":
-            return _read_file(cwd, args.get("path", ""))
+            return _read_file(cwd, args.get("path", ""),
+                              args.get("start_line", 0) or 0, args.get("end_line", 0) or 0)
+        if name == "grep":
+            return _grep(cwd, args.get("pattern", ""), args.get("path", ""))
         if name == "write_file":
             return _write_file(cwd, args.get("path", ""), args.get("content", ""))
         if name == "run_tests":
@@ -156,6 +241,11 @@ def run_agent(task, cwd: str) -> CallResult:
     nudges = 0
 
     while steps < max_steps:
+        # 壁時計キャップの実行時強制。従来は runner の事後判定のみで、実リポ（SWE-bench）
+        # だと1問が際限なく延びうる。超過時点で打ち切り＝runner 側で time キャップ失敗になる。
+        if time.perf_counter() - t0 > task.budget.max_wall_s:
+            transcript.append("[wall-cap] 時間上限で打ち切り")
+            break
         steps += 1
         try:
             resp = requests.post(

@@ -127,6 +127,21 @@ python -m scripts.run_bench --arms cloud_only,router --repeats 3
 python -m scripts.show_report
 ```
 
+## 使い方（SWE-bench・実リポ課題）
+
+Docker 起動と `pip install swebench` が前提。詳細は `docs/DESIGN-swebench.md`。
+
+```bash
+# 配管確認：正解パッチで checkout→diff→Docker評価→記録 の全経路を無料検証
+python -m scripts.run_swebench --arm gold --instances pallets__flask-4045
+
+# ローカルエージェントで1問（無料）
+python -m scripts.run_swebench --arm local_agent --repo flask --limit 1
+
+# クラウドは枠を消費するため明示フラグ必須
+python -m scripts.run_swebench --arm cloud_only --instances <id> --yes-cloud
+```
+
 ## 計測方法のルール（結果を信用できるものにする4点）
 
 1. **完了定義 + 予算キャップ**: `task.yaml` の `budget` で上限（コスト/ターン/時間）を置き、

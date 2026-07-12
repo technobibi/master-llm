@@ -3,11 +3,11 @@ import os
 
 # --- ローカルモデル（LM Studio の OpenAI 互換サーバ） ---
 LOCAL_BASE_URL = os.environ.get("LOCAL_BASE_URL", "http://localhost:1234/v1")
-LOCAL_MODEL = os.environ.get("LOCAL_MODEL", "qwen3-coder-30b-a3b")
+LOCAL_MODEL = os.environ.get("LOCAL_MODEL", "qwen/qwen3-coder-30b")  # LM Studio のモデルキー（lms ls で確認）
 
 # --- クラウド（Claude Code CLI・サブスク接続） ---
 CLAUDE_BIN = os.environ.get("CLAUDE_BIN", "claude")
-CLOUD_MODEL = os.environ.get("CLOUD_MODEL", "")  # 空なら CLI 既定モデル
+CLOUD_MODEL = os.environ.get("CLOUD_MODEL", "claude-opus-4-8")  # 空なら CLI 既定モデル
 CLOUD_ALLOWED_TOOLS = os.environ.get("CLOUD_ALLOWED_TOOLS", "Read,Edit,Write,Bash")
 
 # --- 単価（USD / 100万トークン）。クラウドのみ課金、ローカルは $0 ---
@@ -27,6 +27,13 @@ LOCAL_MAX_RETRIES = int(os.environ.get("LOCAL_MAX_RETRIES", "2"))
 
 # --- ローカル・エージェント（ツール使用ループ） ---
 AGENT_MAX_STEPS = int(os.environ.get("AGENT_MAX_STEPS", "12"))
+# ツール結果1件をモデルへ返すときの上限文字数。実リポ探索(SWE-bench)では
+# 4000 だと読める範囲が狭すぎるため v3 で 8000 に拡大（器の変更は AGENT_VERSION で追跡）
+AGENT_TOOL_RESULT_MAX = int(os.environ.get("AGENT_TOOL_RESULT_MAX", "8000"))
+
+# --- タスク埋め込み（バッチ選択の多様性サンプリング・将来のルーター特徴量） ---
+EMBED_MODEL = os.environ.get("EMBED_MODEL", "text-embedding-nomic-embed-text-v1.5")
+TASK_VECTORS_FILE = os.environ.get("TASK_VECTORS_FILE", "runs/task_vectors.jsonl")
 
 # --- 環境スナップショット用ラベル（個人情報を入れないこと） ---
 MACHINE_LABEL = os.environ.get("MACHINE_LABEL", "unknown")

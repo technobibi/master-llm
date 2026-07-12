@@ -24,3 +24,5 @@ logs/
 *.poc_*.json
 gold.*.json
 tasks_swebench/
+swebench_repos/
+runs/swebench/
