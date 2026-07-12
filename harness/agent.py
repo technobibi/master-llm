@@ -16,9 +16,10 @@ import time
 import requests
 
 from harness import config
+from harness.applier import apply_code
 from harness.models import CallResult
 
-AGENT_VERSION = "local-agent-v1"
+AGENT_VERSION = "local-agent-v2"  # v2: 成果物ができるまで終わらせない解決ループ+保険
 
 _SYSTEM = """あなたはコーディングエージェントです。作業ディレクトリでタスクを完成させます。
 使えるツール: list_files, read_file, write_file, run_tests, finish。
@@ -124,9 +125,25 @@ def _dispatch(name: str, args: dict, cwd: str) -> str:
         return f"ツールエラー({name}): {e}"
 
 
+def _required_output(task):
+    """このタスクが最終的に残すべきファイル（report系は解答ファイル、code系は対象ファイル）。"""
+    return task.answer_file or task.target_file or None
+
+
+def _output_present(task, cwd: str) -> bool:
+    out = _required_output(task)
+    if not out:
+        return True  # 成果物ファイルが定義されていないタスク
+    p = os.path.join(cwd, out)
+    return os.path.isfile(p) and os.path.getsize(p) > 0
+
+
 def run_agent(task, cwd: str) -> CallResult:
     """タスクをエージェントとして解く。集約した CallResult を1つ返す
-    （cloud と同じく turns=ステップ数、トークンは合算）。全対話は text に残す。"""
+    （cloud と同じく turns=ステップ数、トークンは合算）。全対話は text に残す。
+
+    解決ループ: モデルが「完了」を示しても、必要な成果物ファイルが無ければ差し戻して
+    作らせる。それでも作らなければ最後に保険で最終テキストを保存する（素より悪くしない）。"""
     messages = [{"role": "system", "content": _SYSTEM},
                 {"role": "user", "content": task.prompt}]
     transcript = []
@@ -135,6 +152,8 @@ def run_agent(task, cwd: str) -> CallResult:
     max_steps = min(task.budget.max_turns, config.AGENT_MAX_STEPS)
     err = None
     steps = 0
+    last_text = ""
+    nudges = 0
 
     while steps < max_steps:
         steps += 1
@@ -156,16 +175,13 @@ def run_agent(task, cwd: str) -> CallResult:
         out_tok += usage.get("completion_tokens", 0)
         msg = data["choices"][0]["message"]
         tool_calls = msg.get("tool_calls") or []
-        # 履歴に assistant メッセージを積む（次ターンで文脈として送り返す）
         messages.append({"role": "assistant", "content": msg.get("content") or "",
                          "tool_calls": tool_calls})
         if msg.get("content"):
+            last_text = msg["content"]
             transcript.append(f"[assistant] {msg['content']}")
 
-        if not tool_calls:
-            break  # ツール要求なし＝テキストで完了
-
-        done = False
+        finish_requested = not tool_calls  # ツール無しのテキスト = 完了の意思
         for tc in tool_calls:
             fn = tc.get("function", {}).get("name", "")
             raw = tc.get("function", {}).get("arguments", "") or "{}"
@@ -174,15 +190,40 @@ def run_agent(task, cwd: str) -> CallResult:
             except json.JSONDecodeError:
                 args = {}
             if fn == "finish":
-                result = "了解。タスク完了。"
-                done = True
+                finish_requested = True
+                result = ("了解。タスク完了。" if _output_present(task, cwd)
+                          else f"まだ {_required_output(task)} が作成されていません。"
+                               "write_file で保存してから finish してください。")
             else:
                 result = _dispatch(fn, args, cwd)
             transcript.append(f"[tool:{fn}] args={args}\n{result[:500]}")
             messages.append({"role": "tool", "tool_call_id": tc.get("id", ""),
                              "content": result[:_MAX_TOOL_RESULT]})
-        if done:
-            break
+
+        if finish_requested:
+            if _output_present(task, cwd):
+                break  # 成果物あり＝本当に完了
+            # 成果物が無いのに完了しようとした → 差し戻して作らせる（解決ループ）
+            nudges += 1
+            if nudges > 3:
+                break  # 何度促しても作らない → ループ後の保険に委ねる
+            out = _required_output(task)
+            transcript.append(f"[nudge#{nudges}] {out} 未作成のため差し戻し")
+            messages.append({"role": "user", "content":
+                             f"回答内容は分かりましたが、まだ {out} というファイルが作られていません。"
+                             f"その答えを write_file で {out} に必ず保存してください。"})
+
+    # 保険: 成果物が無いまま終わったが、モデルが答えをテキストで出しているなら救済
+    # （エージェントを素の単発生成より悪くしないための最終防衛線）
+    if not _output_present(task, cwd) and last_text.strip():
+        out = _required_output(task)
+        if out:
+            if task.answer_file:
+                with open(os.path.join(cwd, out), "w", encoding="utf-8") as f:
+                    f.write(last_text)
+            else:
+                apply_code(last_text, cwd, out)
+            transcript.append(f"[保険] {out} が無かったので最終テキストを保存した")
 
     wall = time.perf_counter() - t0
     return CallResult(
