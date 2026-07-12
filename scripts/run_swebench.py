@@ -152,6 +152,29 @@ def _parse_report(batch_dir: str, model_label: str, eval_id: str, iid: str):
 
 # ---------- メイン ----------
 
+def _done_instance_ids(arm: str) -> set:
+    """同じ条件（arm、local はさらに同じ agent_version、cloud は同じ cloud_model）で
+    記録済みのインスタンス集合。再開時の二重実行を防ぐ。"""
+    done = set()
+    if not os.path.isfile(config.RUNS_FILE):
+        return done
+    with open(config.RUNS_FILE) as f:
+        for line in f:
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if r.get("category") != "swebench" or r.get("arm") != arm:
+                continue
+            env = r.get("env", {})
+            if arm == "local_agent" and env.get("agent_version") != agent.AGENT_VERSION:
+                continue
+            if arm == "cloud_only" and env.get("cloud_model") != config.CLOUD_MODEL:
+                continue
+            done.add(r.get("task"))
+    return done
+
+
 def _select_instances(args):
     from datasets import load_dataset
     ds = load_dataset(DATASET, split="test")
@@ -185,6 +208,8 @@ def main():
     ap.add_argument("--eval-timeout", type=int, default=1800, help="Docker評価のタイムアウト秒")
     ap.add_argument("--yes-cloud", action="store_true",
                     help="cloud_only の実行に必須（サブスク枠を消費する自覚の明示）")
+    ap.add_argument("--no-skip-done", action="store_true",
+                    help="実行済み（同arm・同版/モデル）でも再実行する")
     ap.add_argument("--keep-workspace", action="store_true", help="作業コピーを消さない（デバッグ）")
     args = ap.parse_args()
 
@@ -194,6 +219,15 @@ def main():
         sys.exit("Docker が動いていません。Docker Desktop を起動してください。")
 
     rows = _select_instances(args)
+    if not args.no_skip_done:
+        done = _done_instance_ids(args.arm)
+        skipped = [r["instance_id"] for r in rows if r["instance_id"] in done]
+        rows = [r for r in rows if r["instance_id"] not in done]
+        if skipped:
+            print(f"[skip] 実行済み {len(skipped)} 問を除外（--no-skip-done で再実行可）")
+    if not rows:
+        print("対象がありません（すべて実行済み）。")
+        return
     print(f"対象 {len(rows)} 問 × {args.repeats} 反復, arm={args.arm}")
 
     now = datetime.now(timezone.utc)

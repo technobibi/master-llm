@@ -41,10 +41,21 @@ def _upgrade(r: dict) -> dict:
     return r
 
 
+def _group_label(r: dict) -> str:
+    """集計キー。器（agent_version）やモデル（cloud_model）が変われば能力も別物なので、
+    同じ arm でも別の行として集計する（v2/v3 や cli-default/opus を混ぜない）。"""
+    arm, env = r["arm"], r.get("env", {})
+    if arm == "local_agent" and env.get("agent_version"):
+        return f"{arm}[{env['agent_version']}]"
+    if arm in ("cloud_only", "router") and env.get("cloud_model"):
+        return f"{arm}[{env['cloud_model']}]"
+    return arm
+
+
 def aggregate(rows):
     by_arm = defaultdict(list)
     for r in rows:
-        by_arm[r["arm"]].append(r)
+        by_arm[_group_label(r)].append(r)
 
     out = {}
     for arm, rs in by_arm.items():
@@ -98,12 +109,13 @@ def oracle_regret(rows):
 
 
 def format_table(agg) -> str:
-    header = (f"{'arm':<12}{'runs':>6}{'success':>9}{'tests':>7}"
+    w = max([len(k) for k in agg] + [12]) + 2
+    header = (f"{'arm':<{w}}{'runs':>6}{'success':>9}{'tests':>7}"
               f"{'$eq(med)':>10}{'sec(med)':>10}{'out_tok':>9}{'cloud':>7}")
     lines = [header, "-" * len(header)]
     for arm, m in sorted(agg.items()):
         lines.append(
-            f"{arm:<12}{m['runs']:>6}{m['success_rate'] * 100:>8.0f}%"
+            f"{arm:<{w}}{m['runs']:>6}{m['success_rate'] * 100:>8.0f}%"
             f"{m['tests_rate'] * 100:>6.0f}%"
             f"{m['med_api_equiv_usd']:>10.4f}{m['med_wall_s']:>10.1f}"
             f"{m['med_out_tok']:>9.0f}{m['cloud_calls']:>7}"

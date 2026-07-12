@@ -18,7 +18,7 @@ import os
 from collections import defaultdict
 from statistics import median
 
-from harness import config, router
+from harness import agent, config, router
 from harness.report import load
 from tasks.registry import load_tasks
 
@@ -59,20 +59,43 @@ def _write_out(kind: str, ver: int, name: str, records: list) -> str:
     return path
 
 
-def build_routing(ver: int):
-    """1行 = 同一 task×rep の local/cloud ペア（反実仮想ラベル）。"""
+def build_routing(ver: int, local_arm: str = "local_agent"):
+    """1行 = 同一 task×rep の local/cloud ペア（反実仮想ラベル）。
+
+    local 側は --local-arm（既定 local_agent = 現行ベースラインの器）。
+    器やモデルが変わると能力そのものが変わるため、**現行の agent_version /
+    cloud_model の行だけ**でペアを組む（古い版の行は stale としてスキップ・件数表示）。
+    同じ (task, rep, side) に複数行あるときは新しい方（ts が大きい方）を使う。
+    """
     v2, n_v1 = _v2_rows()
     by_key = defaultdict(dict)
+    n_stale = 0
     for r in v2:
-        if r["arm"] in ("local_only", "cloud_only"):
-            by_key[(r["task"], r["rep"])][r["arm"]] = r
+        env = r.get("env", {})
+        if r["arm"] == local_arm:
+            if local_arm == "local_agent" and \
+               env.get("agent_version") != agent.AGENT_VERSION:
+                n_stale += 1
+                continue
+            side = "local"
+        elif r["arm"] == "cloud_only":
+            if env.get("cloud_model") != config.CLOUD_MODEL:
+                n_stale += 1
+                continue
+            side = "cloud"
+        else:
+            continue
+        key = (r["task"], r["rep"])
+        prev = by_key[key].get(side)
+        if prev is None or r.get("ts", "") > prev.get("ts", ""):
+            by_key[key][side] = r
 
     records, skipped = [], 0
     for (task_id, rep), group in sorted(by_key.items()):
-        if "local_only" not in group or "cloud_only" not in group:
+        if "local" not in group or "cloud" not in group:
             skipped += 1
             continue
-        lo, cl = group["local_only"], group["cloud_only"]
+        lo, cl = group["local"], group["cloud"]
         prompt = _read_artifact(lo["run_id"], "prompt.txt")
         if prompt is None:
             skipped += 1
@@ -88,10 +111,15 @@ def build_routing(ver: int):
             "cloud_success": cl["success"], "cloud_wall_s": cl["wall_s"],
             "cloud_api_equiv_usd": cl["api_equiv_usd"],
             "oracle_arm": "local" if oracle is lo else "cloud",
+            # provenance: どの器・どのモデルのペアかを行に残す（後から混ぜない・選べる）
+            "local_arm": local_arm,
+            "local_agent_version": lo.get("env", {}).get("agent_version"),
+            "cloud_model": cl.get("env", {}).get("cloud_model"),
             "source_run_ids": [lo["run_id"], cl["run_id"]],
         })
     path = _write_out("routing", ver, "pairs.jsonl", records)
-    print(f"routing v{ver}: 収録 {len(records)} ペア / ペア不成立スキップ {skipped} / v1行スキップ {n_v1}")
+    print(f"routing v{ver}: 収録 {len(records)} ペア（local={local_arm}）"
+          f" / ペア不成立スキップ {skipped} / 版違いスキップ {n_stale} / v1行スキップ {n_v1}")
     print(f"→ {path}")
     if records:
         print("※ 学習時の注意: train/test は必ず「タスク単位」で分けること（リーク防止。STUDY-3 罠2）")
@@ -180,8 +208,14 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--kind", required=True, choices=sorted(BUILDERS))
     ap.add_argument("--ver", type=int, required=True)
+    ap.add_argument("--local-arm", default="local_agent",
+                    choices=["local_agent", "local_only"],
+                    help="routing のみ: local 側に使う arm（既定 local_agent）")
     args = ap.parse_args()
-    BUILDERS[args.kind](args.ver)
+    if args.kind == "routing":
+        build_routing(args.ver, args.local_arm)
+    else:
+        BUILDERS[args.kind](args.ver)
 
 
 if __name__ == "__main__":
