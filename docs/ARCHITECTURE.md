@@ -12,7 +12,7 @@
 | [README.md](../README.md) | セットアップと使い方 | 実装済みの範囲を記載 |
 | [DESIGN-telemetry.md](DESIGN-telemetry.md) | 計測基盤 v2（精度・時間・トークン・コスト・枠消費のログ設計） | **実装済み**（2026-07-09） |
 | [DESIGN-dataset.md](DESIGN-dataset.md) | 学習データ基盤（routing / sft / ambiguity の3データセット） | **実装済み**（build_dataset.py） |
-| [DESIGN-testplan.md](DESIGN-testplan.md) | テストスイート設計（7カテゴリ25タスク・静的採点・holdout分割） | **A〜G実装済み**（2026-07-10。g3_image除く） |
+| [DESIGN-testplan.md](DESIGN-testplan.md) | テストスイート設計（旧・自作7カテゴリ。設計記録として保持） | **廃止**（2026-07-12。公開ベンチに全面移行） |
 | [DESIGN-agent.md](DESIGN-agent.md) | ローカル・エージェント（ツール使用ループ）。3arm比較で器の効果を測る | **実装済み**（v3、2026-07-12） |
 | [DESIGN-swebench.md](DESIGN-swebench.md) | SWE-bench 取り込み（実リポ・複数ファイル課題を Docker 評価で計測） | **v1 実装済み**（2026-07-12） |
 | [DESIGN-learning-loop.md](DESIGN-learning-loop.md) | 学習ループ（振り分け×モデル強化）とデータ共有・実行隔離の設計 | **設計のみ**（着手条件つき） |
@@ -104,23 +104,27 @@
 ## 実装済み（2026-07 時点）
 
 計測基盤 v2（runs/calls/router jsonl + artifacts + 中央値 + オラクル regret）／
-テストスイート suite v1（A〜G 25タスク・静的採点4方式）／ 3 arm（local_only=素・
-local_agent=ツール使用エージェント v3（grep・範囲read・wall打ち切り）・cloud=claude -p）／
-ローカルへの seed 注入 + 規模特徴 ／ 公開ベンチ取り込み（HumanEval + MBPP インポーター、
-SWE-bench Lite 実行系 = run_swebench.py）／ ブラウザUI。
+タスクは公開ベンチのみ 591問（HumanEval 164 + MBPP 427。自作スイートは 2026-07-12 廃止）／
+3 arm（local_only=素・local_agent=ツール使用エージェント v3（grep・範囲read・wall打ち切り）・
+cloud=claude -p）／ SWE-bench Lite 実行系（run_swebench.py）／ バッチベースライン+1:1ミラー
+（run_baseline.py）／ ブラウザUI。
 
 ## 既知の設計課題（未解決のまま前提にしない）
 
 - **arm の非対称性（緩和済み・未解消）**: local_agent でツール使用の器は揃えたが、
   cloud（claude -p）とは器が別物。完全対等ではないことをレポート解釈時に忘れない。
-- **タスクの規模が小さい（緩和済み・未解消）**: 自作25タスクは最大5ファイル。SWE-bench Lite
+- **タスクの規模が小さい（緩和済み・未解消）**: HumanEval/MBPP は関数レベル。SWE-bench Lite
   実行系で実リポ課題は回せるようになった（DESIGN-swebench）が、計測データはまだ薄い。
-- **設計バイアス**: タスクの多くを自分で作った（→ DESIGN-testplan の妥当性の限界。公開ベンチで緩和）。
+- **公開ベンチの仕様品質**: MBPP は一行仕様で、テストだけが知る暗黙仮定がある
+  （実測: Opus でも落ちる仕様欠陥を確認。mbpp_454 / mbpp_626）。数字を解釈する際は
+  「能力不足」と「仕様不足」を混同しない（失敗帰属 2×2 = DESIGN-router §5）。
+- **カテゴリの幅が狭い**: 自作スイート廃止（2026-07-12）により、調査系・UI・曖昧ペア等の
+  軸は当面計測対象外。関数レベル（HumanEval/MBPP）+ 実リポ（SWE-bench）の2軸で見る。
 - **ターン単位の usage 未取得**: `claude -p` の合計のみ。コンテキスト成長曲線には stream-json が要る。
 
 ## いま→次
 
-- **ベースライン計測**: 公開ベンチ + 自作タスク + SWE-bench を 30B エージェントで回して
-  データ蓄積（無料のローカル先行。cloud は失敗・境界例だけを少数・日分割で）
+- **ベースライン計測**: 公開ベンチ 591問 + SWE-bench を 30B エージェントで回してデータ蓄積
+  （run_baseline で30問ずつ。ローカル先行 → 同じ問を cloud で 1:1 ミラー、日分割で）
 - **学習ルーター**（所有者の領域）: 設計は DESIGN-router、着手条件は RESEARCH-BACKLOG R2
 - 研究テーマは RESEARCH-BACKLOG.md（R1 カスケード → R2 学習ルーター → R5 蒸留 …）

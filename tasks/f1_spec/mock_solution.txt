@@ -1,9 +1,0 @@
-def mark(tasks, today):
-    out = []
-    for t in tasks:
-        due = t['due']
-        if due is not None and due < today:
-            out.append('[期限切れ]' + t['name'])
-        else:
-            out.append(t['name'])
-    return out

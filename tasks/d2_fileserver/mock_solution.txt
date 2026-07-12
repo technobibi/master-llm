@@ -1,5 +1,0 @@
-# 脆弱性報告
-
-- fileserver.py:7 パストラバーサル。path に ../ が入ると BASE の外を読める。
-- fileserver.py:12 認可チェック無し。admin_delete が user を検証していない。
-- fileserver.py:16 弱いハッシュ。パスワードに MD5 を使っている。

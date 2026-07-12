@@ -5,7 +5,7 @@
 例:
   python -m scripts.run_bench --arms mock
   python -m scripts.run_bench --arms cloud_only,router --repeats 3
-  python -m scripts.run_bench --arms router --task fizzbuzz
+  python -m scripts.run_bench --arms router --task he_000
 """
 import argparse
 

@@ -17,7 +17,7 @@
 全体像・設計・研究計画は `docs/` にある。**入口は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**（図解+索引）。
 
 - [docs/DESIGN-telemetry.md](docs/DESIGN-telemetry.md) — ログスキーマ（実装済み・source of truth）
-- [docs/DESIGN-testplan.md](docs/DESIGN-testplan.md) — テストスイート（A〜G・静的採点・妥当性の限界）
+- [docs/DESIGN-testplan.md](docs/DESIGN-testplan.md) — 旧・自作テストスイート（**廃止**。設計記録として保持）
 - [docs/DESIGN-agent.md](docs/DESIGN-agent.md) — ローカル・エージェント（ツール使用ループ）
 - [docs/DESIGN-router.md](docs/DESIGN-router.md) — ②ルーティングデータと判定（天秤）の確定設計
 - [docs/DESIGN-learning-loop.md](docs/DESIGN-learning-loop.md) — 学習ループ・データ共有・実行隔離
@@ -45,10 +45,10 @@ master-llm/
 │   ├── workspace.py        #   実行ごとにまっさらな作業コピーを用意
 │   ├── runner.py           #   1タスク実行 + 隠しテスト検証 + ログ追記
 │   └── report.py           #   runs.jsonl を arm 別に集計
-├── tasks/                  # 自作タスクスイート suite v1（A〜F + fizzbuzz）+ SUITE-v1.yaml
-│   ├── registry.py         #   tasks / tasks_ui / tasks_humaneval を走査
-│   └── <id>/               #   task.yaml + seed/ + tests/（隠し採点）+ mock_solution.txt
-├── tasks_ui/               # Web画面タスク G（ui-static採点・Playwright）
+├── tasks/                  # registry.py のみ（自作スイートは 2026-07-12 廃止・git履歴に残存）
+│   ├── registry.py         #   tasks_humaneval / tasks_mbpp を走査
+├── tasks_humaneval/ 等     # 公開ベンチの取り込み（インポーターで各自生成・gitignore）
+│                           #   <id>/task.yaml + seed/ + tests/（隠し採点）+ mock_solution.txt
 ├── scripts/                # CLI 入口
 │   ├── run_bench.py        #   全タスク × arm × 反復 を実行
 │   ├── build_dataset.py    #   ログから学習データ生成（routing / sft / ambiguity）
@@ -170,5 +170,7 @@ python -m scripts.run_swebench --arm cloud_only --instances <id> --yes-cloud
 
 ## タスクの増やし方
 
-`tasks/<新id>/` を作り、`task.yaml`・`seed/`・`tests/` を置くだけで自動認識される。
-まずは pytest で客観判定できる backend タスクから。UI タスク（Playwright 検証）は後から。
+公開ベンチのインポーターを使う（`import_humaneval.py` / `import_mbpp.py` / SWE-bench は
+`run_swebench.py` が直接読む）。手作りタスクの仕組み自体は残っている
+（`tasks/<新id>/` に `task.yaml`・`seed/`・`tests/` を置けば自動認識）が、
+自作スイートは仕様品質の担保コストを理由に 2026-07-12 に廃止した。

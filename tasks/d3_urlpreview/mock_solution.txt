@@ -1,5 +1,0 @@
-# 脆弱性報告
-
-- preview.py:7 SSRF。url を検証せず urlopen しており内部リソースへ到達可能。
-- preview.py:10 信頼できない入力の pickle.loads によるデシリアライズRCE。
-- preview.py:15 subprocess(shell=True) にユーザー入力を連結、コマンドインジェクション。

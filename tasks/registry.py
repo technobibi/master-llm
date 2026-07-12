@@ -1,7 +1,8 @@
-"""tasks/*/task.yaml と tasks_ui/*/task.yaml を読み込んで Task のリストを返す。
+"""tasks*/ 配下の task.yaml を読み込んで Task のリストを返す。
 
-tasks/<id>/ に task.yaml・seed/・tests/ を置けば自動認識。
-Web画面タスクは tasks_ui/<id>/ に置く（採点に Playwright を使うため分離。DESIGN-testplan §4）。
+主な供給源は公開ベンチの取り込み（tasks_humaneval/ tasks_mbpp/。インポーターで生成）。
+tasks/<id>/ に task.yaml・seed/・tests/ を置けば手作りタスクも自動認識される
+（自作スイートは 2026-07-12 廃止。実体は git 履歴に残存）。
 """
 import os
 
@@ -11,7 +12,7 @@ from harness.models import Budget, Task
 
 TASKS_ROOT = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(TASKS_ROOT)
-# tasks/ = 自作スイート、tasks_ui/ = Web画面、tasks_humaneval/ 等 = 公開ベンチの取り込み(gitignore)
+# tasks_humaneval/ 等 = 公開ベンチの取り込み(gitignore)。tasks_ui/ は廃止済み（欠損時は自動スキップ）
 TASK_ROOTS = [TASKS_ROOT,
               os.path.join(_PROJECT_ROOT, "tasks_ui"),
               os.path.join(_PROJECT_ROOT, "tasks_humaneval"),

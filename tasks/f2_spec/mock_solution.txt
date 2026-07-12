@@ -1,3 +1,0 @@
-def format_log(record):
-    level = record['level'].upper().rjust(5)
-    return f"[{level}] {record['ts']} {record['message']}"
