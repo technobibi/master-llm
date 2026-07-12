@@ -18,6 +18,7 @@
 | [DESIGN-learning-loop.md](DESIGN-learning-loop.md) | 学習ループ（振り分け×モデル強化）とデータ共有・実行隔離の設計 | **設計のみ**（着手条件つき） |
 | [DESIGN-router.md](DESIGN-router.md) | ②ルーティングデータと判定（天秤）・失敗帰属・指示コストの確定設計 | **設計のみ**（判定本体は所有者が実装） |
 | [RESULTS.md](RESULTS.md) | 計測結果ノート（集計と結論の恒久記録。追記式） | 随時追記 |
+| [DESIGN-improvements.md](DESIGN-improvements.md) | 改善リスト（長期運用・OSS・ML基盤としての設計改善方針） | 方針記録（未実装） |
 | [RESEARCH-BACKLOG.md](RESEARCH-BACKLOG.md) | 本線に載せない研究テーマ R1〜R9（着手条件つき） | 記録のみ |
 | [study/STUDY-1-llm.md](study/STUDY-1-llm.md) | 勉強ノート: LLMの仕組み（このプロジェクトに必要な分だけ） | 教材 |
 | [study/STUDY-2-harness.md](study/STUDY-2-harness.md) | 勉強ノート: 計測ルールの「なぜ」= ML評価の設計思想 | 教材 |
