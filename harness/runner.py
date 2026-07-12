@@ -5,6 +5,7 @@
 runs/artifacts/<run_id>/ に保存し、後から特徴量や分析をやり直せるようにする
 （docs/DESIGN-telemetry.md の原則3「生データ > 派生値」）。
 """
+import fcntl
 import json
 import os
 import subprocess
@@ -47,11 +48,19 @@ def _save_diff(task, cwd: str, adir: str) -> None:
 
 
 def _append_jsonl(record: dict, path: str) -> None:
+    """1行追記。ローカルとクラウドを別プロセスで並行実行しても行が壊れないよう、
+    追記中は排他ロック（advisory flock）を取る。全書き手が同じ関数を通るので有効。"""
     parent = os.path.dirname(path)
     if parent:
         os.makedirs(parent, exist_ok=True)
+    line = json.dumps(record, ensure_ascii=False) + "\n"
     with open(path, "a") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        try:
+            f.write(line)
+            f.flush()
+        finally:
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
 def _cap_reason(calls, wall: float, task):
