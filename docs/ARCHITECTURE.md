@@ -14,6 +14,7 @@
 | [DESIGN-dataset.md](DESIGN-dataset.md) | 学習データ基盤（routing / sft / ambiguity の3データセット） | **実装済み**（build_dataset.py） |
 | [DESIGN-testplan.md](DESIGN-testplan.md) | テストスイート設計（7カテゴリ25タスク・静的採点・holdout分割） | **A〜G実装済み**（2026-07-10。g3_image除く） |
 | [DESIGN-agent.md](DESIGN-agent.md) | ローカル・エージェント（ツール使用ループ）。3arm比較で器の効果を測る | **実装済み**（2026-07-10） |
+| [DESIGN-learning-loop.md](DESIGN-learning-loop.md) | 学習ループ（振り分け×モデル強化）とデータ共有・実行隔離の設計 | **設計のみ**（着手条件つき） |
 | [RESEARCH-BACKLOG.md](RESEARCH-BACKLOG.md) | 本線に載せない研究テーマ R1〜R9（着手条件つき） | 記録のみ |
 | [study/STUDY-1-llm.md](study/STUDY-1-llm.md) | 勉強ノート: LLMの仕組み（このプロジェクトに必要な分だけ） | 教材 |
 | [study/STUDY-2-harness.md](study/STUDY-2-harness.md) | 勉強ノート: 計測ルールの「なぜ」= ML評価の設計思想 | 教材 |
