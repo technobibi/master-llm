@@ -14,7 +14,8 @@ _PROJECT_ROOT = os.path.dirname(TASKS_ROOT)
 # tasks/ = 自作スイート、tasks_ui/ = Web画面、tasks_humaneval/ 等 = 公開ベンチの取り込み(gitignore)
 TASK_ROOTS = [TASKS_ROOT,
               os.path.join(_PROJECT_ROOT, "tasks_ui"),
-              os.path.join(_PROJECT_ROOT, "tasks_humaneval")]
+              os.path.join(_PROJECT_ROOT, "tasks_humaneval"),
+              os.path.join(_PROJECT_ROOT, "tasks_mbpp")]
 
 
 def load_tasks():

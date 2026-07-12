@@ -67,8 +67,11 @@ def convert(rec, out_root):
     # seed: 関数スタブ+docstring（docstringだけを本体に持つ有効なPython）
     _write(os.path.join(d, "seed", "solution.py"), rec["prompt"])
 
-    # 隠しテスト: check(candidate) を定義し、完成した関数に対して回す
-    test_body = (f"from solution import {entry}\n\n"
+    # 隠しテスト: check(candidate) を定義し、完成した関数に対して回す。
+    # 一部の check は模範解のヘルパー関数（例: poly）を名前で直接参照するため、
+    # solution の全名前を取り込む（HumanEval 公式評価と同じ「同一名前空間で実行」方式）。
+    # HumanEval の関数名に test_* は無いので pytest の誤収集は起きない。
+    test_body = (f"from solution import *\n\n"
                  f"{rec['test']}\n\n"
                  f"def test_humaneval():\n    check({entry})\n")
     _write(os.path.join(d, "tests", "test_hidden.py"), test_body)
