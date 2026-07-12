@@ -127,6 +127,23 @@ python -m scripts.run_bench --arms cloud_only,router --repeats 3
 python -m scripts.show_report
 ```
 
+## 使い方（ベースライン蓄積・30問ずつのバッチ）
+
+全616問を一気に回すと数時間かかるため、1起動=30問（≒30分）で区切って進める。
+実行済みは自動スキップされるので、同じコマンドを繰り返すだけで続きから進む。
+選択は埋め込みの farthest-point（似た問題は後のバッチへ回る）。
+
+```bash
+# ローカル30B: 30問だけ回して止まる（無料）
+python -m scripts.run_baseline --arm local_agent
+
+# クラウドの 1:1 ミラー: ローカル実行済みの同じ問だけを回す（ローカル失敗ペア優先）
+python -m scripts.run_baseline --arm cloud_only --yes-cloud
+
+# 次に選ばれる問を確認するだけ（実行しない）
+python -m scripts.run_baseline --arm local_agent --dry-run
+```
+
 ## 使い方（SWE-bench・実リポ課題）
 
 Docker 起動と `pip install swebench` が前提。詳細は `docs/DESIGN-swebench.md`。

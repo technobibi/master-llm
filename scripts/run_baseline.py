@@ -28,24 +28,44 @@ from tasks.registry import load_tasks
 
 # ---------- 実行済み判定（再開の要） ----------
 
-def _done_task_ids(arm: str) -> set:
-    """同じ arm（local_agent はさらに同じ agent_version）で記録済みのタスク集合。"""
-    done = set()
+def _runs(arm: str):
+    """runs.jsonl から該当 arm の行を返す（壊れた行は読み飛ばす）。"""
     if not os.path.isfile(config.RUNS_FILE):
-        return done
+        return
     with open(config.RUNS_FILE) as f:
         for line in f:
             try:
                 r = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if r.get("arm") != arm:
-                continue
-            if arm == "local_agent" and \
-               r.get("env", {}).get("agent_version") != agent.AGENT_VERSION:
-                continue  # 器が変わったら再計測の対象（版の違いは比較で使う）
-            done.add(r.get("task"))
+            if r.get("arm") == arm:
+                yield r
+
+
+def _done_task_ids(arm: str) -> set:
+    """同じ条件で記録済みのタスク集合。local_agent は同じ agent_version、
+    cloud_only は同じ cloud_model の行だけを「済み」と数える（器・モデルが変われば再計測）。"""
+    done = set()
+    for r in _runs(arm):
+        env = r.get("env", {})
+        if arm == "local_agent" and env.get("agent_version") != agent.AGENT_VERSION:
+            continue
+        if arm == "cloud_only" and env.get("cloud_model") != config.CLOUD_MODEL:
+            continue
+        done.add(r.get("task"))
     return done
+
+
+def _local_pair_results() -> dict:
+    """1:1 ミラー用: local_agent（現行版）の task → success。失敗ペアを優先するのに使う。"""
+    res = {}
+    for r in _runs("local_agent"):
+        if r.get("env", {}).get("agent_version") != agent.AGENT_VERSION:
+            continue
+        if r.get("category") == "swebench":
+            continue  # SWE-bench は run_swebench 側で対で扱う
+        res[r["task"]] = bool(r.get("success")) or res.get(r["task"], False)
+    return res
 
 
 # ---------- タスク埋め込み（キャッシュ付き） ----------
@@ -130,12 +150,14 @@ def _select_diverse(cands, done_vecs, vecs, batch: int):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--arm", default="local_agent",
-                    choices=["local_agent", "local_only", "mock"],
-                    help="クラウドは対象外（run_bench で少数・日分割で行う）")
+                    choices=["local_agent", "local_only", "mock", "cloud_only"],
+                    help="cloud_only は 1:1 ミラー（local_agent 実行済みの問だけを同条件で回す）")
     ap.add_argument("--batch", type=int, default=30, help="この起動で回す問数（既定30）")
     ap.add_argument("--order", choices=["diverse", "registry"], default="diverse",
                     help="diverse=埋め込みの farthest-point / registry=登録順")
     ap.add_argument("--category", default=None, help="カテゴリで絞る（例: humaneval）")
+    ap.add_argument("--yes-cloud", action="store_true",
+                    help="cloud_only の実行に必須（サブスク枠を消費する自覚の明示）")
     ap.add_argument("--dry-run", action="store_true", help="選択結果の表示のみ（実行しない）")
     args = ap.parse_args()
 
@@ -143,6 +165,26 @@ def main():
     if args.category:
         tasks = [t for t in tasks if t.category == args.category]
     done = _done_task_ids(args.arm)
+
+    if args.arm == "cloud_only":
+        # 1:1 ミラー: ローカル（現行版）で結果があり、クラウド（現行モデル）が未の問だけ。
+        # 「ローカル失敗」ペアを先に回す — 失敗帰属 2×2（DESIGN-router §5）で最も情報量が多い
+        if not args.dry_run and not args.yes_cloud:
+            raise SystemExit("cloud_only はサブスク枠を消費します。意図的なら --yes-cloud を付けてください。")
+        local = _local_pair_results()
+        cands = [t for t in tasks if t.id in local and t.id not in done]
+        cands.sort(key=lambda t: (local[t.id], t.id))  # False（ローカル失敗）が先
+        n_fail = sum(1 for t in cands if not local[t.id])
+        est = 0.7 * min(args.batch, len(cands))
+        print(f"1:1 ミラー対象 {len(cands)} 問（うちローカル失敗 {n_fail} を優先）"
+              f" / cloud={config.CLOUD_MODEL} / このバッチのAPI換算 概算 ${est:.0f}（実支払$0）")
+        batch_tasks = cands[: args.batch]
+        if not batch_tasks:
+            print("ミラー対象がありません（先に local_agent のバッチを進めてください）。")
+            return
+        _print_and_run(batch_tasks, args, len(cands))
+        return
+
     cands = [t for t in tasks if t.id not in done]
     print(f"全 {len(tasks)} 問中 実行済み {len(tasks) - len(cands)} / 残り {len(cands)}"
           f"（arm={args.arm}, agent={agent.AGENT_VERSION}）")
@@ -161,8 +203,11 @@ def main():
     else:
         batch_tasks = cands[: args.batch]
 
-    est = len(batch_tasks) * 60
-    print(f"このバッチ: {len(batch_tasks)} 問（概算 {est // 60} 分）")
+    _print_and_run(batch_tasks, args, len(cands))
+
+
+def _print_and_run(batch_tasks, args, n_candidates: int):
+    print(f"このバッチ: {len(batch_tasks)} 問（ローカル概算 {len(batch_tasks)} 分）")
     for t in batch_tasks:
         print(f"  {t.id:<28} {t.category}")
     if args.dry_run:
@@ -175,9 +220,10 @@ def main():
         flag = "ok  " if res.success else "FAIL"
         cap = f" (cap:{res.cap_reason})" if res.hit_cap else ""
         print(f"[{flag}] {i:3d}/{len(batch_tasks)} {task.id:<28} "
-              f"tests {res.tests_passed}/{res.tests_total} {res.wall_s:6.1f}s{cap}")
+              f"tests {res.tests_passed}/{res.tests_total} {res.wall_s:6.1f}s "
+              f"$eq{res.api_equiv_usd:.4f}{cap}")
 
-    remaining = len(cands) - len(batch_tasks)
+    remaining = n_candidates - len(batch_tasks)
     print(f"\nバッチ完了: 成功 {ok}/{len(batch_tasks)}  残り {remaining} 問"
           f"（続きは同じコマンドをもう一度）")
 
