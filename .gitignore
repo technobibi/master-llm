@@ -18,3 +18,9 @@ tasks_mbpp/
 
 # macOS
 .DS_Store
+
+# SWE-bench の評価生成物（ローカル生成・派生）
+logs/
+*.poc_*.json
+gold.*.json
+tasks_swebench/
