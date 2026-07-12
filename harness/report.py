@@ -46,7 +46,12 @@ def _group_label(r: dict) -> str:
     同じ arm でも別の行として集計する（v2/v3 や cli-default/opus を混ぜない）。"""
     arm, env = r["arm"], r.get("env", {})
     if arm == "local_agent" and env.get("agent_version"):
-        return f"{arm}[{env['agent_version']}]"
+        tag = env["agent_version"]
+        if env.get("local_model"):  # 7B/30B の差し替えも別物として集計
+            tag += "|" + env["local_model"]
+        return f"{arm}[{tag}]"
+    if arm == "local_only" and env.get("local_model"):
+        return f"{arm}[{env['local_model']}]"
     if arm in ("cloud_only", "router") and env.get("cloud_model"):
         return f"{arm}[{env['cloud_model']}]"
     return arm
