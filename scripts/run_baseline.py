@@ -43,11 +43,14 @@ def _runs(arm: str):
 
 
 def _done_task_ids(arm: str) -> set:
-    """同じ条件で記録済みのタスク集合。local_agent は同じ agent_version、
-    cloud_only は同じ cloud_model の行だけを「済み」と数える（器・モデルが変われば再計測）。"""
+    """同じ条件で記録済みのタスク集合。local_agent/local_only は同じ local_model
+    （local_agent はさらに同じ agent_version）、cloud_only は同じ cloud_model の
+    行だけを「済み」と数える（器・モデルが変われば再計測）。"""
     done = set()
     for r in _runs(arm):
         env = r.get("env", {})
+        if arm in ("local_agent", "local_only") and env.get("local_model") != config.LOCAL_MODEL:
+            continue
         if arm == "local_agent" and env.get("agent_version") != agent.AGENT_VERSION:
             continue
         if arm == "cloud_only" and env.get("cloud_model") != config.CLOUD_MODEL:
@@ -57,10 +60,14 @@ def _done_task_ids(arm: str) -> set:
 
 
 def _local_pair_results() -> dict:
-    """1:1 ミラー用: local_agent（現行版）の task → success。失敗ペアを優先するのに使う。"""
+    """1:1 ミラー用: local_agent（現行版・現行 LOCAL_MODEL）の task → success。
+    失敗ペアを優先するのに使う。"""
     res = {}
     for r in _runs("local_agent"):
-        if r.get("env", {}).get("agent_version") != agent.AGENT_VERSION:
+        env = r.get("env", {})
+        if env.get("agent_version") != agent.AGENT_VERSION:
+            continue
+        if env.get("local_model") != config.LOCAL_MODEL:
             continue
         if r.get("category") == "swebench":
             continue  # SWE-bench は run_swebench 側で対で扱う

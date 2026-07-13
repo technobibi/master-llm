@@ -153,8 +153,8 @@ def _parse_report(batch_dir: str, model_label: str, eval_id: str, iid: str):
 # ---------- メイン ----------
 
 def _done_instance_ids(arm: str) -> set:
-    """同じ条件（arm、local はさらに同じ agent_version、cloud は同じ cloud_model）で
-    記録済みのインスタンス集合。再開時の二重実行を防ぐ。"""
+    """同じ条件（arm、local はさらに同じ agent_version+local_model、
+    cloud は同じ cloud_model）で記録済みのインスタンス集合。再開時の二重実行を防ぐ。"""
     done = set()
     if not os.path.isfile(config.RUNS_FILE):
         return done
@@ -167,7 +167,10 @@ def _done_instance_ids(arm: str) -> set:
             if r.get("category") != "swebench" or r.get("arm") != arm:
                 continue
             env = r.get("env", {})
-            if arm == "local_agent" and env.get("agent_version") != agent.AGENT_VERSION:
+            if arm == "local_agent" and (
+                env.get("agent_version") != agent.AGENT_VERSION
+                or env.get("local_model") != config.LOCAL_MODEL
+            ):
                 continue
             if arm == "cloud_only" and env.get("cloud_model") != config.CLOUD_MODEL:
                 continue
