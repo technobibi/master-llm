@@ -107,3 +107,23 @@ router との差を出す。
 
 schema フィールドの無い旧行は report 側で「v1」として読み替える（v1 の cost_usd は api_equiv に移す）。
 変換スクリプトは作らない。
+
+## 無効 run の注釈（invalid_runs.jsonl・実装済み 2026-07-14）
+
+**問題**: 推論ランタイムの失速（メモリ圧で <10 tok/s に落ちる）や他計測との並行実行など、
+「モデルの能力ではなく計測条件の不備」で汚染された run が混ざりうる。
+append-only 原則のため行の削除・書き換えはできない。
+
+**解**: `runs/invalid_runs.jsonl`（gitignore 済み・append-only）に注釈を追記する。
+1行 = `{"run_id", "task", "arm", "reason", "ts"}`。
+
+- `report.invalid_run_ids()` が集合を返し、`report.load()`・run_baseline/run_swebench の
+  skip-done がこれを除外する → 無効タスクは**自動で再計測対象に戻る**
+- 元の行は runs.jsonl に残る（監査可能・append-only 維持）
+- **無効化の基準は結果でなく条件**（例: tok/s<10 の呼び出しを含む、並行実行の時間帯）。
+  「失敗したから無効」は禁止 — 成功するまで再試行するバイアスが入るため
+- 再計測は独立した新規セッションで行われる（fresh workspace・履歴なし）ので、
+  過去の実行・正解がモデルに漏れる経路はない
+
+**初適用 2026-07-14**: Qwen3.6 計測 365 run 中 37 を無効化
+（20 = メモリ圧失速→cap=time、17 = クラウドミラー並行期間の wall 汚染）。

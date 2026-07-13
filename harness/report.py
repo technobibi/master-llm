@@ -11,15 +11,36 @@ from statistics import median
 from harness import config
 
 
+def invalid_run_ids(path: str = None) -> set:
+    """計測条件違反として注釈された run_id の集合（runs/invalid_runs.jsonl）。
+    行の削除はしない（append-only）。集計・skip-done がここで除外する。"""
+    path = path or config.INVALID_RUNS_FILE
+    ids = set()
+    try:
+        with open(path) as f:
+            for line in f:
+                try:
+                    ids.add(json.loads(line)["run_id"])
+                except (json.JSONDecodeError, KeyError):
+                    continue
+    except FileNotFoundError:
+        pass
+    return ids
+
+
 def load(path: str = None):
     path = path or config.RUNS_FILE
+    invalid = invalid_run_ids()
     rows = []
     try:
         with open(path) as f:
             for line in f:
                 line = line.strip()
                 if line:
-                    rows.append(_upgrade(json.loads(line)))
+                    r = _upgrade(json.loads(line))
+                    if r.get("run_id") in invalid:
+                        continue
+                    rows.append(r)
     except FileNotFoundError:
         pass
     return rows

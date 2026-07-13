@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 
 import requests
 
-from harness import agent, config
+from harness import agent, config, report
 from harness.runner import run_task
 from tasks.registry import load_tasks
 
@@ -29,14 +29,17 @@ from tasks.registry import load_tasks
 # ---------- 実行済み判定（再開の要） ----------
 
 def _runs(arm: str):
-    """runs.jsonl から該当 arm の行を返す（壊れた行は読み飛ばす）。"""
+    """runs.jsonl から該当 arm の行を返す（壊れた行と無効注釈済みの行は読み飛ばす）。"""
     if not os.path.isfile(config.RUNS_FILE):
         return
+    invalid = report.invalid_run_ids()
     with open(config.RUNS_FILE) as f:
         for line in f:
             try:
                 r = json.loads(line)
             except json.JSONDecodeError:
+                continue
+            if r.get("run_id") in invalid:
                 continue
             if r.get("arm") == arm:
                 yield r

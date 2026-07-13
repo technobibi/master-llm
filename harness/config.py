@@ -40,6 +40,9 @@ MACHINE_LABEL = os.environ.get("MACHINE_LABEL", "unknown")
 
 # --- 既定値 ---
 RUNS_FILE = os.environ.get("RUNS_FILE", "runs/runs.jsonl")
+# 計測条件違反（推論失速・並行実行など）の run を「行を消さずに」除外するための注釈ファイル。
+# 行は runs.jsonl に残し、集計・skip-done だけがここを参照して除外する（append-only 原則の維持）
+INVALID_RUNS_FILE = os.environ.get("INVALID_RUNS_FILE", "runs/invalid_runs.jsonl")
 CALLS_FILE = os.environ.get("CALLS_FILE", "runs/calls.jsonl")
 ROUTER_FILE = os.environ.get("ROUTER_FILE", "runs/router.jsonl")
 ARTIFACTS_DIR = os.environ.get("ARTIFACTS_DIR", "runs/artifacts")

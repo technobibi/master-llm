@@ -28,7 +28,7 @@ import time
 from dataclasses import asdict
 from datetime import datetime, timezone
 
-from harness import agent, clients, config, runner
+from harness import agent, clients, config, report, runner
 from harness.models import Budget, CallResult, RunResult, Task
 
 DATASET = "princeton-nlp/SWE-bench_Lite"
@@ -158,11 +158,14 @@ def _done_instance_ids(arm: str) -> set:
     done = set()
     if not os.path.isfile(config.RUNS_FILE):
         return done
+    invalid = report.invalid_run_ids()
     with open(config.RUNS_FILE) as f:
         for line in f:
             try:
                 r = json.loads(line)
             except json.JSONDecodeError:
+                continue
+            if r.get("run_id") in invalid:
                 continue
             if r.get("category") != "swebench" or r.get("arm") != arm:
                 continue
