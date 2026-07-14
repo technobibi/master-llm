@@ -20,6 +20,7 @@
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -109,9 +110,56 @@ def _run_arm(arm: str, inst: dict, task: Task, cwd: str) -> CallResult:
         return _arm_gold(inst, task, cwd)
     if arm == "local_agent":
         return agent.run_agent(task, cwd)
+    if arm == "local_aider":
+        return _arm_aider(task, cwd)
     if arm == "cloud_only":
         return clients.call_cloud(task.prompt, cwd, task.budget.max_turns)
     raise ValueError(f"未知の arm: {arm}")
+
+
+AIDER_LABEL = "aider-0.86.2"  # 実用装備ローカルの器バージョン（env.harness に記録）
+
+
+def _aider_tokens(text: str):
+    """Aider の "Tokens: 8.2k sent, 415 received." 行を合算して (in, out) を返す。"""
+    def n(s):
+        s = s.replace(",", "")
+        return int(float(s[:-1]) * 1000) if s.endswith("k") else int(float(s))
+    in_tok = out_tok = 0
+    for m in re.finditer(r"Tokens: ([\d.,k]+) sent, ([\d.,k]+) received", text):
+        in_tok += n(m.group(1))
+        out_tok += n(m.group(2))
+    return in_tok, out_tok
+
+
+def _arm_aider(task: Task, cwd: str) -> CallResult:
+    """実用装備ローカル: Aider（diff編集・リポマップ）で LM Studio モデルを駆動。
+    自作エージェント（local_agent）と違い、道具の質は製品級。器の差の計測対象。"""
+    aider = os.environ.get("AIDER_BIN", os.path.expanduser("~/.local/bin/aider"))
+    env = dict(os.environ)
+    env["OPENAI_API_BASE"] = config.LOCAL_BASE_URL
+    env["OPENAI_API_KEY"] = "dummy"
+    cmd = [aider, "--model", f"openai/{config.LOCAL_MODEL}",
+           "--yes-always", "--no-auto-commits", "--no-pretty", "--no-stream",
+           "--no-analytics", "--no-show-model-warnings",
+           "--message", task.prompt]
+    t0 = time.perf_counter()
+    err = None
+    try:
+        proc = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True,
+                              text=True, timeout=task.budget.max_wall_s)
+        out = (proc.stdout or "") + (("\n[stderr]\n" + proc.stderr) if proc.stderr else "")
+        if proc.returncode != 0:
+            err = f"aider rc={proc.returncode}"
+    except subprocess.TimeoutExpired as e:
+        out = e.stdout if isinstance(e.stdout, str) else (e.stdout or b"").decode(errors="replace")
+        err = f"aider timeout {task.budget.max_wall_s:.0f}s"
+    wall = time.perf_counter() - t0
+    in_tok, out_tok = _aider_tokens(out or "")
+    return CallResult(provider="local", model=config.LOCAL_MODEL, role="aider",
+                      in_tok=in_tok, out_tok=out_tok,
+                      wall_s=wall, tok_per_s=round(out_tok / wall, 2) if wall > 0 else 0.0,
+                      turns=1, error=err, text=(out or "")[-20000:])
 
 
 # ---------- Docker 評価 ----------
@@ -175,6 +223,8 @@ def _done_instance_ids(arm: str) -> set:
                 or env.get("local_model") != config.LOCAL_MODEL
             ):
                 continue
+            if arm == "local_aider" and env.get("local_model") != config.LOCAL_MODEL:
+                continue
             if arm == "cloud_only" and env.get("cloud_model") != config.CLOUD_MODEL:
                 continue
             done.add(r.get("task"))
@@ -202,7 +252,8 @@ def _select_instances(args):
 def main():
     ap = argparse.ArgumentParser(
         description="SWE-bench Lite を既存テレメトリで計測（docs/DESIGN-swebench.md）")
-    ap.add_argument("--arm", required=True, choices=["gold", "local_agent", "cloud_only"])
+    ap.add_argument("--arm", required=True,
+                    choices=["gold", "local_agent", "local_aider", "cloud_only"])
     ap.add_argument("--instances", nargs="*", help="instance_id を空白区切りで指定")
     ap.add_argument("--repo", help="repo 名の部分一致で選ぶ（例: flask）")
     ap.add_argument("--limit", type=int, default=1, help="--repo 選択時の件数上限（既定1）")
@@ -321,6 +372,7 @@ def main():
                     "cloud_model": config.CLOUD_MODEL or "cli-default",
                     "billing": config.CLOUD_BILLING, "machine": config.MACHINE_LABEL,
                     "agent_version": agent.AGENT_VERSION,
+                    "harness": AIDER_LABEL if args.arm == "local_aider" else "builtin",
                     "agent_max_out_tokens": config.AGENT_MAX_OUT_TOKENS or None,
                 },
             )
