@@ -60,19 +60,22 @@ def call_local(prompt: str, role: str = "solo") -> CallResult:
     )
 
 
-def call_cloud(prompt: str, cwd: str, max_turns: int, role: str = "solo") -> CallResult:
-    """Claude Code CLI をヘッドレスで実行。cwd 内のファイルを自律的に編集する。"""
+def call_cloud(prompt: str, cwd: str, max_turns: int, role: str = "solo",
+               full: bool = False) -> CallResult:
+    """Claude Code CLI をヘッドレスで実行。cwd 内のファイルを自律的に編集する。
+    full=True は実用フル装備モード（R10）: ツール制限なし＝サブエージェント含む
+    全標準ツールを解禁。使い捨てワークスペース内での実行が前提。"""
     env = dict(os.environ)
     if config.CLOUD_BILLING != "api":
         # ★サブスク運用時はAPIキーを必ず外す。残っていると黙って従量課金になる。
         #   API運用（CLOUD_BILLING=api）のときだけキーを通し、CLI報告額を実支払として記録する。
         env.pop("ANTHROPIC_API_KEY", None)
-    cmd = [
-        config.CLAUDE_BIN, "-p", prompt,
-        "--output-format", "json",
-        "--allowedTools", config.CLOUD_ALLOWED_TOOLS,
-        "--max-turns", str(max_turns),
-    ]
+    cmd = [config.CLAUDE_BIN, "-p", prompt, "--output-format", "json"]
+    if full:
+        cmd += ["--dangerously-skip-permissions"]
+    else:
+        cmd += ["--allowedTools", config.CLOUD_ALLOWED_TOOLS]
+    cmd += ["--max-turns", str(max_turns)]
     if config.CLOUD_MODEL:
         cmd += ["--model", config.CLOUD_MODEL]
 

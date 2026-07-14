@@ -114,6 +114,8 @@ def _run_arm(arm: str, inst: dict, task: Task, cwd: str) -> CallResult:
         return _arm_aider(task, cwd)
     if arm == "cloud_only":
         return clients.call_cloud(task.prompt, cwd, task.budget.max_turns)
+    if arm == "cloud_full":
+        return clients.call_cloud(task.prompt, cwd, task.budget.max_turns, full=True)
     raise ValueError(f"未知の arm: {arm}")
 
 
@@ -225,7 +227,7 @@ def _done_instance_ids(arm: str) -> set:
                 continue
             if arm == "local_aider" and env.get("local_model") != config.LOCAL_MODEL:
                 continue
-            if arm == "cloud_only" and env.get("cloud_model") != config.CLOUD_MODEL:
+            if arm in ("cloud_only", "cloud_full") and env.get("cloud_model") != config.CLOUD_MODEL:
                 continue
             done.add(r.get("task"))
     return done
@@ -253,7 +255,7 @@ def main():
     ap = argparse.ArgumentParser(
         description="SWE-bench Lite を既存テレメトリで計測（docs/DESIGN-swebench.md）")
     ap.add_argument("--arm", required=True,
-                    choices=["gold", "local_agent", "local_aider", "cloud_only"])
+                    choices=["gold", "local_agent", "local_aider", "cloud_only", "cloud_full"])
     ap.add_argument("--instances", nargs="*", help="instance_id を空白区切りで指定")
     ap.add_argument("--repo", help="repo 名の部分一致で選ぶ（例: flask）")
     ap.add_argument("--limit", type=int, default=1, help="--repo 選択時の件数上限（既定1）")
@@ -372,7 +374,9 @@ def main():
                     "cloud_model": config.CLOUD_MODEL or "cli-default",
                     "billing": config.CLOUD_BILLING, "machine": config.MACHINE_LABEL,
                     "agent_version": agent.AGENT_VERSION,
-                    "harness": AIDER_LABEL if args.arm == "local_aider" else "builtin",
+                    "harness": (AIDER_LABEL if args.arm == "local_aider"
+                                else "claude-full" if args.arm == "cloud_full" else "builtin"),
+                    "max_wall": args.max_wall,
                     "agent_max_out_tokens": config.AGENT_MAX_OUT_TOKENS or None,
                 },
             )
