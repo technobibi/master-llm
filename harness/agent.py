@@ -248,10 +248,14 @@ def run_agent(task, cwd: str) -> CallResult:
             break
         steps += 1
         try:
+            body = {"model": config.LOCAL_MODEL, "messages": messages,
+                    "tools": _TOOLS, "temperature": 0.2}
+            if config.AGENT_MAX_OUT_TOKENS > 0:
+                # 無限生成（EOS が出ない繰り返しループ）の安全弁。0 なら従来挙動
+                body["max_tokens"] = config.AGENT_MAX_OUT_TOKENS
             resp = requests.post(
                 f"{config.LOCAL_BASE_URL}/chat/completions",
-                json={"model": config.LOCAL_MODEL, "messages": messages,
-                      "tools": _TOOLS, "temperature": 0.2},
+                json=body,
                 timeout=600,
             )
             resp.raise_for_status()

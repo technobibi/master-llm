@@ -321,6 +321,7 @@ def main():
                     "cloud_model": config.CLOUD_MODEL or "cli-default",
                     "billing": config.CLOUD_BILLING, "machine": config.MACHINE_LABEL,
                     "agent_version": agent.AGENT_VERSION,
+                    "agent_max_out_tokens": config.AGENT_MAX_OUT_TOKENS or None,
                 },
             )
             runner._append_jsonl(asdict(result), config.RUNS_FILE)

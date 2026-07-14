@@ -27,6 +27,10 @@ LOCAL_MAX_RETRIES = int(os.environ.get("LOCAL_MAX_RETRIES", "2"))
 
 # --- ローカル・エージェント（ツール使用ループ） ---
 AGENT_MAX_STEPS = int(os.environ.get("AGENT_MAX_STEPS", "12"))
+# 1回の生成の出力トークン上限（0=無効・従来挙動）。
+# 特定プロンプトでモデルが EOS を出さず無限生成 → クライアント600s タイムアウト
+# → サーバにゾンビ生成が残る事故を実測（Gemma4/Qwen3.6）。設定時のみ安全弁が入る
+AGENT_MAX_OUT_TOKENS = int(os.environ.get("AGENT_MAX_OUT_TOKENS", "0"))
 # ツール結果1件をモデルへ返すときの上限文字数。実リポ探索(SWE-bench)では
 # 4000 だと読める範囲が狭すぎるため v3 で 8000 に拡大（器の変更は AGENT_VERSION で追跡）
 AGENT_TOOL_RESULT_MAX = int(os.environ.get("AGENT_TOOL_RESULT_MAX", "8000"))
