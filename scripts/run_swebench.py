@@ -112,6 +112,8 @@ def _run_arm(arm: str, inst: dict, task: Task, cwd: str) -> CallResult:
         return agent.run_agent(task, cwd)
     if arm == "local_aider":
         return _arm_aider(task, cwd)
+    if arm == "local_opencode":
+        return _arm_opencode(task, cwd)
     if arm == "cloud_only":
         return clients.call_cloud(task.prompt, cwd, task.budget.max_turns)
     if arm == "cloud_full":
@@ -120,6 +122,28 @@ def _run_arm(arm: str, inst: dict, task: Task, cwd: str) -> CallResult:
 
 
 AIDER_LABEL = "aider-0.86.2"  # 実用装備ローカルの器バージョン（env.harness に記録）
+OPENCODE_LABEL = "opencode-1.17.15"  # 完全体ローカル（サブエージェント・フルツール・MCP）
+
+
+def _arm_opencode(task: Task, cwd: str) -> CallResult:
+    """完全体ローカル: OpenCode（サブエージェント/bash/編集/grep標準装備）を
+    ヘッドレス実行。LM Studio モデルを lmstudio/<id> で指定。"""
+    oc = os.environ.get("OPENCODE_BIN", "opencode")
+    cmd = [oc, "run", "-m", f"lmstudio/{config.LOCAL_MODEL}", task.prompt]
+    t0 = time.perf_counter()
+    err = None
+    try:
+        proc = subprocess.run(cmd, cwd=cwd, env=dict(os.environ), capture_output=True,
+                              text=True, timeout=task.budget.max_wall_s)
+        out = (proc.stdout or "") + (("\n[stderr]\n" + proc.stderr) if proc.stderr else "")
+        if proc.returncode != 0:
+            err = f"opencode rc={proc.returncode}"
+    except subprocess.TimeoutExpired as e:
+        out = e.stdout if isinstance(e.stdout, str) else (e.stdout or b"").decode(errors="replace")
+        err = f"opencode timeout {task.budget.max_wall_s:.0f}s"
+    wall = time.perf_counter() - t0
+    return CallResult(provider="local", model=config.LOCAL_MODEL, role="opencode",
+                      wall_s=wall, turns=1, error=err, text=(out or "")[-20000:])
 
 
 def _aider_tokens(text: str):
@@ -225,7 +249,7 @@ def _done_instance_ids(arm: str) -> set:
                 or env.get("local_model") != config.LOCAL_MODEL
             ):
                 continue
-            if arm == "local_aider" and env.get("local_model") != config.LOCAL_MODEL:
+            if arm in ("local_aider", "local_opencode") and env.get("local_model") != config.LOCAL_MODEL:
                 continue
             if arm in ("cloud_only", "cloud_full") and env.get("cloud_model") != config.CLOUD_MODEL:
                 continue
@@ -255,7 +279,8 @@ def main():
     ap = argparse.ArgumentParser(
         description="SWE-bench Lite を既存テレメトリで計測（docs/DESIGN-swebench.md）")
     ap.add_argument("--arm", required=True,
-                    choices=["gold", "local_agent", "local_aider", "cloud_only", "cloud_full"])
+                    choices=["gold", "local_agent", "local_aider", "local_opencode",
+                             "cloud_only", "cloud_full"])
     ap.add_argument("--instances", nargs="*", help="instance_id を空白区切りで指定")
     ap.add_argument("--repo", help="repo 名の部分一致で選ぶ（例: flask）")
     ap.add_argument("--limit", type=int, default=1, help="--repo 選択時の件数上限（既定1）")
@@ -375,6 +400,7 @@ def main():
                     "billing": config.CLOUD_BILLING, "machine": config.MACHINE_LABEL,
                     "agent_version": agent.AGENT_VERSION,
                     "harness": (AIDER_LABEL if args.arm == "local_aider"
+                                else OPENCODE_LABEL if args.arm == "local_opencode"
                                 else "claude-full" if args.arm == "cloud_full" else "builtin"),
                     "max_wall": args.max_wall,
                     "agent_max_out_tokens": config.AGENT_MAX_OUT_TOKENS or None,
