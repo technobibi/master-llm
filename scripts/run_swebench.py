@@ -129,7 +129,9 @@ def _arm_opencode(task: Task, cwd: str) -> CallResult:
     """完全体ローカル: OpenCode（サブエージェント/bash/編集/grep標準装備）を
     ヘッドレス実行。LM Studio モデルを lmstudio/<id> で指定。"""
     oc = os.environ.get("OPENCODE_BIN", "opencode")
-    cmd = [oc, "run", "-m", f"lmstudio/{config.LOCAL_MODEL}", task.prompt]
+    # --dir 必須: これが無いと opencode は cwd を無視して自分で git ルートを探し、
+    # SWE-bench の一時チェックアウトでなく master-llm リポ自体を触りに行く（実測）
+    cmd = [oc, "run", "--dir", cwd, "-m", f"lmstudio/{config.LOCAL_MODEL}", task.prompt]
     t0 = time.perf_counter()
     err = None
     try:
